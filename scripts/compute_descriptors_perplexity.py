@@ -136,7 +136,25 @@ def main():
     print(f"Finished. Missing {skipped} <pid, model> pairs.")
 
     descriptor = np.mean(descriptor, axis=2)
-    descriptor = descriptor / np.linalg.norm(descriptor, axis=1, keepdims=True)
+
+    # Some (probe, model) pairs yield perplexity_fingerprint() == inf: the
+    # model's response was empty or short enough (<=1 GPT2 token) that a
+    # next-token loss can't be computed at all. A single inf in a model's
+    # row makes its L2 norm inf too, so *every* entry in that row collapses
+    # to 0 (finite/inf) or NaN (inf/inf) during normalization — silently
+    # destroying that model's whole descriptor instead of just the one bad
+    # probe. Treat those probes as missing data instead: drop any probe
+    # column where at least one model in the pool couldn't be scored, so
+    # every model's descriptor is computed over an identical, fully-valid
+    # probe subset.
+    valid_cols = ~np.isinf(descriptor).any(axis=0)
+    n_dropped = int((~valid_cols).sum())
+    if n_dropped:
+        print(f"Dropping {n_dropped} probe(s) with at least one unscoreable "
+              f"(empty/too-short) model response, out of {descriptor.shape[1]}.")
+        descriptor = descriptor[:, valid_cols]
+
+    descriptor = descriptor / (np.linalg.norm(descriptor, axis=1, keepdims=True) + 1e-12)
 
     if args.plot:
         from sklearn.metrics.pairwise import cosine_similarity

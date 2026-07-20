@@ -45,9 +45,11 @@ os.environ["HF_HOME"] = "/content/hf_cache"
 os.makedirs(os.environ["HF_HOME"], exist_ok=True)
 
 # %% Cell 2 — clone repo + install deps
-# The local clone at C:\Users\user\git_seminar\cscr is an unmodified
-# checkout of origin/main, so Colab can just clone the original repo.
-get_ipython().system('git clone -q https://github.com/rezashkv/cscr.git /content/cscr')
+# Cloning the fork (prectal123/cscr_re), not the original repo — it already
+# has the padding-bug fix (and, once applied, the perplexity NaN fix) baked
+# in, so Cell 2b's monkey-patch below is now just a harmless no-op safety
+# net rather than doing the real work.
+get_ipython().system('git clone -q https://github.com/prectal123/cscr_re.git /content/cscr')
 get_ipython().run_line_magic('cd', '/content/cscr')
 get_ipython().system('pip install -e . -q')
 get_ipython().system('pip install -q bitsandbytes accelerate')
