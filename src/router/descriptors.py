@@ -84,7 +84,8 @@ def compute_logit_descriptor(
     tokens (greedy sampling).  This is a bit slower but captures more
     information about the expert's behaviour.
     """
-    tokenizer.pad_token = tokenizer.eos_token 
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"  # required for correct batched generate() with causal LMs
     if top_token_ids is None:
         top_token_ids = _get_shared_vocab_topk(tokenizer, probes, k=top_k)
 
