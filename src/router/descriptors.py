@@ -108,6 +108,18 @@ def compute_logit_descriptor(
                     probs_accum[idx] += probs[b, :, tid].mean().item()
                 n_total += 1
 
+            # generate(..., output_scores=True) keeps one (B, vocab) tensor per
+            # generated token alive on `gen`/`logits`/`probs` until the next
+            # loop iteration reassigns them, and CUDA's caching allocator only
+            # returns freed blocks to its own pool (not the OS) unless nudged.
+            # Over many batches (e.g. 48 at N_PROBES=192, vs. 8 at N=32) that
+            # per-iteration slack accumulates into fragmentation, which is why
+            # a run that fit fine at N=32 can still OOM well before the end at
+            # a larger N. Freeing explicitly each iteration keeps peak memory
+            # roughly constant regardless of how many batches there are.
+            del enc, gen, logits, probs
+            torch.cuda.empty_cache()
+
     descriptor = probs_accum / n_total
     # L2 normalise for cosine similarity use‑case
     norm = np.linalg.norm(descriptor) + 1e-12
