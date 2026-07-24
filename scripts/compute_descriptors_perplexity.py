@@ -37,6 +37,14 @@ def cross_entropy_fingerprint(text: str, max_len: int = 1024) -> float:
             max_length=max_len,
         )
         input_ids = enc["input_ids"].to(_CE_MODEL.device)
+        if input_ids.numel() == 0:
+            # A completely empty response (0 GPT2 tokens, not just a short
+            # one) makes input_ids.view(-1, 0) ambiguous and crashes the
+            # model's forward pass outright, before ever reaching the
+            # existing <=1-token NaN path below. Return NaN here too so the
+            # dbdd200 fix (drop any probe column with an inf/NaN entry)
+            # still catches this case instead of the whole script dying.
+            return float("nan")
         logits = _CE_MODEL(input_ids).logits
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = input_ids[..., 1:].contiguous()
@@ -143,16 +151,25 @@ def main():
     # row makes its L2 norm inf too, so *every* entry in that row collapses
     # to 0 (finite/inf) or NaN (inf/inf) during normalization — silently
     # destroying that model's whole descriptor instead of just the one bad
-    # probe. Treat those probes as missing data instead: drop any probe
-    # column where at least one model in the pool couldn't be scored, so
-    # every model's descriptor is computed over an identical, fully-valid
-    # probe subset.
-    valid_cols = ~np.isinf(descriptor).any(axis=0)
-    n_dropped = int((~valid_cols).sum())
-    if n_dropped:
-        print(f"Dropping {n_dropped} probe(s) with at least one unscoreable "
-              f"(empty/too-short) model response, out of {descriptor.shape[1]}.")
-        descriptor = descriptor[:, valid_cols]
+    # probe.
+    #
+    # Zero-fill those entries instead of dropping the whole probe column.
+    # Dropping columns made the descriptor's dimensionality drift below
+    # n_probes by however many probes happened to be unscoreable for *any*
+    # model, which breaks the paper's own stated precondition for a unified
+    # metric space (Section 3.1.2: "setting N = K, i.e. the number of top
+    # tokens in logit fingerprints equals the number of prompts in
+    # perplexity fingerprints") — logit descriptors are always exactly
+    # TOPK-dimensional regardless of how many probes are used, so perplexity
+    # must stay exactly N_PROBES-dimensional to match. Zero is a neutral
+    # fill value post-normalization: it contributes nothing to the dot
+    # product against any other vector on that axis, rather than injecting
+    # an arbitrary/extreme value that would distort cosine similarity.
+    n_bad = int(np.isinf(descriptor).sum())
+    if n_bad:
+        print(f"Zero-filling {n_bad} unscoreable (empty/too-short) "
+              f"<probe, model> entries out of {descriptor.size}.")
+        descriptor[np.isinf(descriptor)] = 0.0
 
     descriptor = descriptor / (np.linalg.norm(descriptor, axis=1, keepdims=True) + 1e-12)
 
