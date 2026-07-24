@@ -1,0 +1,9 @@
+[
+  "eachadea__vicuna-13b-1.1",
+  "chavinlo__alpaca-native",
+  "TheBloke__koala-7B-HF",
+  "stabilityai__stablelm-tuned-alpha-7b",
+  "OpenAssistant__oasst-sft-4-pythia-12b-epoch-3.5",
+  "google__flan-t5-xxl",
+  "THUDM__chatglm-6b"
+]

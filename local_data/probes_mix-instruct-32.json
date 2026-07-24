@@ -1,0 +1,130 @@
+[
+  {
+    "prompt": "Generate a list of 5 names of cities from New York. ",
+    "prompt_id": "itwgpt4/27003"
+  },
+  {
+    "prompt": "What is HDFS? ",
+    "prompt_id": "dolly_15k/open_qa/2327"
+  },
+  {
+    "prompt": "What is the name of the world's deepest river? ",
+    "prompt_id": "itwgpt4/21789"
+  },
+  {
+    "prompt": " What was the name of the case that the Supreme Court decided in 1927?",
+    "prompt_id": "unified_chip2/90553"
+  },
+  {
+    "prompt": " I have a question about the Hebrew word zev. Who is Zev?",
+    "prompt_id": "unified_chip2/52516"
+  },
+  {
+    "prompt": " Is it normal for a woman's breasts to get bigger during pregnancy?",
+    "prompt_id": "unified_chip2/56439"
+  },
+  {
+    "prompt": " Which of these is a good way to start a sentence?",
+    "prompt_id": "unified_chip2/42536"
+  },
+  {
+    "prompt": " Is there a way to tell if my car has been towed?",
+    "prompt_id": "unified_chip2/60638"
+  },
+  {
+    "prompt": " I've been trying to find a new job. What should I do?",
+    "prompt_id": "unified_chip2/5722"
+  },
+  {
+    "prompt": "Is the manatee an endangered species? ",
+    "prompt_id": "dolly_15k/open_qa/3178"
+  },
+  {
+    "prompt": " What are popular recipes for chicken cordon bleu?",
+    "prompt_id": "unified_chip2/31533"
+  },
+  {
+    "prompt": " Which is more environmentally friendly: a paper bag or a plastic bag?",
+    "prompt_id": "unified_chip2/108518"
+  },
+  {
+    "prompt": " My doctor wants me to get an EKG. What is the procedure like?",
+    "prompt_id": "unified_chip2/9113"
+  },
+  {
+    "prompt": "What is email? ",
+    "prompt_id": "dolly_15k/open_qa/589"
+  },
+  {
+    "prompt": " Traduire ceci en anglais: Q-NAVISTAR 19- Est-il possibilit\u00e9 d\u2019avoir l\u2019information des CORE CHARGE sur une ligne s\u00e9parer du co\u00fbt de la pi\u00e8ce lors d\u2019une session PUNCHOUT et lors du passage d\u2019une commande vers le system de NAVISTAR (n\u00e9cessit\u00e9 selon la r\u00e9ponse de Q-CONTRANS 2).",
+    "prompt_id": "sharegpt/Jk0ptvB_0"
+  },
+  {
+    "prompt": "Given the following details, write a short paragraph about a vacation destination. Destination: Mexico \nTime of Year: Summer \nActivities: Swimming, fishing, snorkeling, zip-lining",
+    "prompt_id": "itwgpt4/26606"
+  },
+  {
+    "prompt": " What is the difference between a phobia and a fear?",
+    "prompt_id": "unified_chip2/85865"
+  },
+  {
+    "prompt": "Name the main crochet stitches ",
+    "prompt_id": "dolly_15k/open_qa/1173"
+  },
+  {
+    "prompt": "Transform the following 3 sentences into one single sentence using the imperative form. The snow is falling\nThe wind is blowing\nThe trees are shaking",
+    "prompt_id": "itwgpt4/19167"
+  },
+  {
+    "prompt": "Write a descriptive sentence using the given noun. Rainbow",
+    "prompt_id": "itwgpt4/7346"
+  },
+  {
+    "prompt": " Which type of car insurance suits me the best?",
+    "prompt_id": "unified_chip2/130105"
+  },
+  {
+    "prompt": "When did California become a state? ",
+    "prompt_id": "dolly_15k/open_qa/2787"
+  },
+  {
+    "prompt": " Why is it called an alderney cow?",
+    "prompt_id": "unified_chip2/83332"
+  },
+  {
+    "prompt": " How can I get a free e-book about investing?",
+    "prompt_id": "unified_chip2/52835"
+  },
+  {
+    "prompt": " How many animals were on the ark?",
+    "prompt_id": "unified_chip2/52564"
+  },
+  {
+    "prompt": " How did the white customers patronize the prostitutes in Chinatown?",
+    "prompt_id": "unified_chip2/109881"
+  },
+  {
+    "prompt": " What are some good online resources for learning about the solar system?",
+    "prompt_id": "unified_chip2/10634"
+  },
+  {
+    "prompt": " What is the position from a game between Pal Benko and International Master Jay Bonin?",
+    "prompt_id": "unified_chip2/9726"
+  },
+  {
+    "prompt": " Produce a mystical scene outside farmland orchard with roots, soil, and deobars.",
+    "prompt_id": "unified_chip2/135744"
+  },
+  {
+    "prompt": " Is there a way to determine the amount of sodium in a salt shaker?",
+    "prompt_id": "unified_chip2/40104"
+  },
+  {
+    "prompt": " What are some good questions to ask when I go to a doctor's appointment?",
+    "prompt_id": "unified_chip2/152072"
+  },
+  {
+    "prompt": " pretend that you are douglas adams",
+    "prompt_id": "sharegpt/EdpfipH_0"
+  }
+]
