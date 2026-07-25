@@ -7,11 +7,22 @@
 # What this does, in order:
 #   1. Creates a Python venv and installs dependencies.
 #   2. Checks GPU VRAM and decides bf16 vs 4-bit quantization automatically.
-#   3. Computes the logit descriptor for the 4 MixInstruct models we never
-#      had local GPU headroom for (dolly-v2-12b, moss-moon-003-sft,
-#      mpt-7b-instruct, baize) using the existing 192-probe set.
-#      Perplexity descriptors for these 4 are already in the repo (they
-#      don't need a GPU - see PROGRESS.md section 13).
+#   3. Computes the logit descriptor for moss-moon-003-sft (16B, blocked
+#      locally by VRAM only) and baize (blocked by a missing tokenizer file
+#      in its HF repo - the code has a Llama-2-tokenizer fallback that MAY
+#      recover it, not guaranteed) using the existing 192-probe set.
+#
+#   NOTE: dolly-v2-12b and mpt-7b-instruct are NOT attempted here - their
+#   HF Hub repos are gone entirely (verified 2026-07-25, 401/Repository Not
+#   Found). No amount of GPU/VRAM fixes a repo that no longer exists; see
+#   PROGRESS.md section 6/14. Realistic ceiling for the logit-descriptor
+#   pool is 9 models (current 7 + moss-moon-003-sft, +baize if the
+#   tokenizer fallback works), not the full 11.
+#
+#   Perplexity descriptors for all 11 (including dolly/mpt) are already in
+#   the repo - those never needed live model access, just the response
+#   text already stored in the MixInstruct dataset. See PROGRESS.md #13.
+#
 #   Safe to re-run: already-completed steps and already-computed
 #   descriptors are skipped.
 
@@ -100,9 +111,7 @@ OUT_DIR="local_descriptors/mix-instruct-logit"
 mkdir -p "$OUT_DIR"
 
 MODELS=(
-    "databricks/dolly-v2-12b"
     "fnlp/moss-moon-003-sft"
-    "mosaicml/mpt-7b-instruct"
     "mosesjun0h/llama-7b-hf-baize-lora-bf16"
 )
 
@@ -131,8 +140,11 @@ done
 echo ""
 echo "=============================================="
 if [ ${#FAILED[@]} -eq 0 ]; then
-    echo "All done. Logit descriptors for all 11 MixInstruct models are now in:"
+    echo "All done. Logit descriptors now cover up to 9/11 MixInstruct models"
+    echo "(7 original + moss-moon-003-sft + baize) in:"
     echo "  $OUT_DIR/"
+    echo "(dolly-v2-12b and mpt-7b-instruct are permanently unreachable - see"
+    echo " the note at the top of this script / PROGRESS.md section 14.)"
 else
     echo "Finished with ${#FAILED[@]} failure(s):"
     for M in "${FAILED[@]}"; do echo "  - $M"; done

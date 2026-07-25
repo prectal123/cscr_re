@@ -5,6 +5,26 @@
 
 ---
 
+## 0. TL;DR — 2026-07-25 세션 종료 시점, 다음은 여기서부터
+
+**여기까지 끝난 것**: 5단계 계획(1~5번, 7번 섹션) 전부 1차 완료. Logit·perplexity descriptor 7개 모델분 재계산 → 벡터 기하학 분석(rho≈0, 논문 반박 핵심 증거) → 7개 pool로 벤치마크 필터링 → MLP 학습 → deferral curve 재현까지 다 돌아감.
+
+**세션 막바지 핵심 발견(13번 섹션)**: 학습된 라우터가 프롬프트를 거의 무시하고 매번 랜덤하게 전문가 1명한테 붕괴함(n_bands sweep으로 확인, 98~99%가 단일 전문가로 쏠림). **이게 예상 못한 결과지만 오히려 발표 핵심 소재로 쓸 만함** — "Cost-Spectrum InfoNCE가 작은 pool에서 프롬프트 조건부 라우팅을 전혀 학습 못 한다"는 논지.
+
+**다음에 할 일 (우선순위 순)**:
+1. **Multi-seed 검증** (13번 섹션 미완료 과제) — 같은 설정(`n_bands=5`)으로 3~5번 재학습해서 방금 발견한 "붕괴가 랜덤하다"는 게 진짜인지 확인. GPU 거의 안 씀(111MB), 로컬/기숙아 노트북 어디서든 바로 가능.
+2. **GPU 서버 접속해서 pool 확장** (14번 섹션) — `git clone` 후 `bash scripts/setup_and_run_gpu_server.sh` 한 줄이면 `moss-moon-003-sft`(16B) + `baize` logit descriptor 계산 시도(성공하면 7→9개 pool). **주의**: `dolly-v2-12b`/`mpt-7b-instruct`는 저장소 자체가 사라져서 시도 안 함(영구 제외).
+3. pool이 8~9개로 늘면 위 1~5단계(특히 4~5단계 MLP 학습·deferral curve)를 확장된 pool로 재실행 — 붕괴 문제가 pool 크기 때문인지 다시 검증 가능.
+
+**기숙아 노트북(4GB VRAM)에서 재개하는 법**: `git clone`/`pull`만 하면 descriptor·probe·학습된 MLP(경량판)까지 다 딸려옴. MLP 재학습 없이 바로 쓰려면:
+```python
+from scripts.load_slim_encoder import load_slim_encoder
+encoder = load_slim_encoder("local_checkpoints/slim/query-encoder-logit")
+```
+GPU 자체는 실질적으로 거의 필요 없음(descriptor 계산 제외 전부 CPU로 충분).
+
+---
+
 ## 1. 프로젝트 개요
 
 - 원본 논문/리포: **CSCR** ("Cost-Aware Contrastive Routing for LLMs", NeurIPS 2025 spotlight, arXiv:2508.12491), 원본 GitHub: https://github.com/rezashkv/cscr
@@ -100,12 +120,12 @@ Cell 9(perplexity, mix-instruct) 최초 실행 시 크래시 발생 → 원인 �
 | ✅ 완료 | `TheBloke/koala-7B-HF` | |
 | ✅ 완료 | `google/flan-t5-xxl` | 45GB로 제일 크지만 실제로 잘 됨 |
 | ✅ 완료 | `THUDM/chatglm-6b` | 최신 `transformers`에서 토크나이저 로딩 버그(`get_vocab()`/`sp_tokenizer` 순서 문제) — `transformers==4.33.0` 전용 venv(`.venv-legacy`)로 해결, 로컬 5060 Ti에서 계산 |
-| ❌ 제외(확정) | `databricks/dolly-v2-12b` | HF Hub에서 저장소 자체가 사라짐/제한됨(검색에도 안 뜸), gated 아님 |
-| ❌ 제외(확정) | `mosaicml/mpt-7b-instruct` | dolly와 동일한 실패 패턴, 마찬가지로 접근 불가로 추정 |
-| ❌ 제외(확정) | `fnlp/moss-moon-003-sft` | chatglm과 같은 계열 코드 비호환(`is_tf_available` import 에러) + **16B라 로컬 8GB VRAM도 Colab 무료 티어도 감당 못 함** — 코드만 고쳐도 하드웨어 벽에 막힘, 임시 보류 아니라 확정 제외 |
-| ❌ 제외(확정) | `mosesjun0h/llama-7b-hf-baize-lora-bf16` | 저장소에 토크나이저 파일 자체가 없음(불완전한 커뮤니티 업로드) |
+| ❌ 제외(영구, 2026-07-25 HF API 재확인) | `databricks/dolly-v2-12b` | HF Hub에서 저장소 자체가 완전히 삭제됨(`401 Repository Not Found`) — GPU 서버로도 복구 불가능 |
+| ❌ 제외(영구, 2026-07-25 HF API 재확인) | `mosaicml/mpt-7b-instruct` | dolly와 동일(`401 Repository Not Found`) — GPU 서버로도 복구 불가능 |
+| 🔄 GPU 서버에서 재시도 예정 | `fnlp/moss-moon-003-sft` | chatglm과 같은 계열 코드 비호환(`is_tf_available` import 에러, 원본 코드에 우회책 있음) + **16B라 로컬 8GB VRAM은 못 감당** — 순수 VRAM 문제라 GPU 서버면 해결 가능, 14번 섹션 참고 |
+| 🔄 GPU 서버에서 재시도 예정(성공 불확실) | `mosesjun0h/llama-7b-hf-baize-lora-bf16` | 저장소는 존재하나 토크나이저 파일이 없음(불완전한 커뮤니티 업로드) — 코드의 Llama-2 토크나이저 폴백으로 살아날 가능성 있음, 14번 섹션 참고 |
 
-이 마모(model rot) 자체도 "2023년식 개인/소규모 팀 업로드 위주의 pool이라 시간이 지나며 자연 마모된 것" — 발표에 넣을 만한 관찰 포인트. 남은 3개 제외 사유가 전부 "코드를 고쳐도 안 되는" 근본적인 것들(저장소 소실 2개, 업로드 불완전 1개)뿐이고, "코드 호환성만의 문제"였던 건 chatglm-6b 하나뿐이라 그건 실제로 살려냈다는 서사로 정리 가능.
+이 마모(model rot) 자체도 "2023년식 개인/소규모 팀 업로드 위주의 pool이라 시간이 지나며 자연 마모된 것" — 발표에 넣을 만한 관찰 포인트. **2026-07-25 GPU 서버 준비하면서 재확인한 결과**: dolly-v2-12b·mpt-7b-instruct 2개는 저장소 자체가 사라져서 영구 제외 확정, 나머지 2개(moss-moon-003-sft, baize)는 순수 하드웨어/사소한 파일 누락 문제라 GPU 서버에서 재시도 가치 있음(14번 섹션). "코드 호환성만의 문제"였던 chatglm-6b는 이미 살려냈고, moss-moon-003-sft도 비슷한 성격(VRAM만 있으면 됨)이라 GPU 서버에서 8~9개까지 pool을 키울 수 있을 전망.
 
 **Probe 개수와 TOPK 모두 192로 통일**(2026-07-24) — 이유는 아래 9번 참고.
 
@@ -265,7 +285,14 @@ flan-t5-xxl이 두 번이나 독립적으로 붕괴 대상이 된 건 우연이 
 
 ## 14. GPU 서버에서 실험 이어가기 (2026-07-25)
 
-**목표**: 로컬(8GB VRAM)에서 못 돌린 나머지 4개 MixInstruct 모델(`dolly-v2-12b`, `moss-moon-003-sft`[16B], `mpt-7b-instruct`, `baize`)의 **logit descriptor**를 계산해서 11개 모델 전체를 채우는 것. (**Perplexity descriptor는 이미 11개 전부 로컬에 있음** — 응답 텍스트가 MixInstruct 데이터셋에 이미 포함돼 있어서 모델 실행 자체가 필요 없었기 때문. `local_descriptors/mix-instruct-perplexity/`에 11개 `.npy` 파일 확인됨.)
+**목표**: 로컬(8GB VRAM)에서 못 돌린 모델들의 **logit descriptor**를 마저 계산해서 7개 pool을 최대한 키우는 것. (**Perplexity descriptor는 이미 11개 전부 로컬에 있음** — 응답 텍스트가 MixInstruct 데이터셋에 이미 포함돼 있어서 모델 실행 자체가 필요 없었기 때문. `local_descriptors/mix-instruct-perplexity/`에 11개 `.npy` 파일 확인됨. 하지만 이건 logit descriptor가 못 도는 이유와는 무관함 — 아래 참고.)
+
+**⚠️ 중요한 정정 (2026-07-25 재확인)**: 처음에 "나머지 4개 계산하면 11개 다 채워진다"고 GPU 스크립트를 짰다가, 6번 섹션(이전 세션에 이미 확인된 제외 사유)이랑 안 맞는 걸 뒤늦게 발견해서 HF Hub API로 다시 확인함:
+- `databricks/dolly-v2-12b`, `mosaicml/mpt-7b-instruct`: **저장소 자체가 HF Hub에서 완전히 삭제됨** (`401 Repository Not Found`, 2026-07-25 API로 재확인) — GPU/VRAM을 아무리 늘려도 존재하지 않는 저장소는 못 받음. **영구 제외.**
+- `mosesjun0h/llama-7b-hf-baize-lora-bf16`: 저장소는 존재하지만 토크나이저 파일이 없는 게 재확인됨 — 다만 `load_model_and_tokenizer()`에 `AutoTokenizer` 로딩 실패 시 Llama-2 토크나이저로 폴백하는 기존 코드가 있어서(baize가 llama-7b 기반 LoRA라 vocab 호환 가능성 있음), **시도는 해볼 가치 있지만 성공 보장은 안 됨.**
+- `fnlp/moss-moon-003-sft`(16B): 저장소·토크나이저 파일 다 있음. **진짜 VRAM 문제였던 유일한 모델 — GPU 서버로 확실히 해결 가능.**
+
+**현실적 목표치는 11개가 아니라 9개**(현재 7개 + moss-moon-003-sft 확정 + baize 성공하면 +1). GPU 스크립트도 이에 맞춰 dolly/mpt-7b-instruct는 아예 시도 안 하도록 수정함.
 
 **사용법 (SSH 접속 → git clone → 스크립트 1개 실행)**:
 ```bash
@@ -277,12 +304,12 @@ bash scripts/setup_and_run_gpu_server.sh
 1. `.venv` 생성 + `pip install -e .` + 로컬에서 필요했던 추가 패키지(`bitsandbytes`, `sentencepiece`, `protobuf`) 설치
 2. `nvidia-smi`로 VRAM 확인 → **40GB 미만이면 자동으로 4bit 양자화**(`--four_bit` 플래그) 적용, 그 이상이면 bf16 그대로
 3. torch가 GPU를 제대로 보는지 확인(안 보이면 CUDA 버전 안내 메시지와 함께 중단)
-4. 4개 모델의 logit descriptor를 순서대로 계산해서 `local_descriptors/mix-instruct-logit/`에 저장
+4. `moss-moon-003-sft`, `baize` 두 모델의 logit descriptor를 순서대로 계산해서 `local_descriptors/mix-instruct-logit/`에 저장
 
 **재실행 안전함**: 이미 계산된 `.npy` 파일이 있으면 건너뛰고, 중간에 실패한 모델만 재시도 — 다운로드 도중 끊겨도 처음부터 다시 할 필요 없음.
 
 **구현 세부사항**: 원본 `load_model_and_tokenizer()`(`src/router/utils.py`)는 기본 bf16 로드만 지원했음(4bit 양자화 없음) — `four_bit: bool = False` 파라미터를 추가하고, `True`일 때 `BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4", ...)`를 써서 로컬에서 썼던 것과 동일한 NF4 양자화 경로를 추가함(`scripts/compute_descriptors.py --four_bit`로 노출). 원본 코드에 moss-moon-003-sft용 토크나이저 우회(`revision="refs/pr/6"`)가 이미 들어있어서 호환성 이슈는 낮을 것으로 예상.
 
 **스크립트가 자동으로 안 하는 것(판단이 필요해서 의도적으로 남겨둠)**:
-- `experts/pool-mix-instruct-7.json`을 11개로 확장할지 여부, FAISS 인덱스 재구성 — 11개로 확장하면 학습 pool이 커져서 cost-band 붕괴 문제(13번 섹션)가 완화될 수도 있음, 확인해볼 가치 있음.
+- `experts/pool-mix-instruct-7.json`을 8~9개로 확장할지 여부, FAISS 인덱스 재구성 — pool이 커지면 학습 pool이 커져서 cost-band 붕괴 문제(13번 섹션)가 완화될 수도 있음, 확인해볼 가치 있음.
 - Multi-seed n_bands 재검증(13번 섹션 미완료 과제)이나 RouterBench mistral-7b-chat descriptor 계산 — 서버 여유 되면 같이 진행 가능.
