@@ -260,3 +260,29 @@ flan-t5-xxl이 두 번이나 독립적으로 붕괴 대상이 된 건 우연이 
   encoder = load_slim_encoder("local_checkpoints/slim/query-encoder-logit")
   ```
   기숙사 컴퓨터에서는 이걸로 재학습 없이 바로 라우터 복원 가능(인터넷으로 MiniLM 90MB 한 번만 받으면 됨).
+
+---
+
+## 14. GPU 서버에서 실험 이어가기 (2026-07-25)
+
+**목표**: 로컬(8GB VRAM)에서 못 돌린 나머지 4개 MixInstruct 모델(`dolly-v2-12b`, `moss-moon-003-sft`[16B], `mpt-7b-instruct`, `baize`)의 **logit descriptor**를 계산해서 11개 모델 전체를 채우는 것. (**Perplexity descriptor는 이미 11개 전부 로컬에 있음** — 응답 텍스트가 MixInstruct 데이터셋에 이미 포함돼 있어서 모델 실행 자체가 필요 없었기 때문. `local_descriptors/mix-instruct-perplexity/`에 11개 `.npy` 파일 확인됨.)
+
+**사용법 (SSH 접속 → git clone → 스크립트 1개 실행)**:
+```bash
+git clone https://github.com/prectal123/cscr_re.git
+cd cscr_re
+bash scripts/setup_and_run_gpu_server.sh
+```
+이 스크립트(`scripts/setup_and_run_gpu_server.sh`)가 하는 일:
+1. `.venv` 생성 + `pip install -e .` + 로컬에서 필요했던 추가 패키지(`bitsandbytes`, `sentencepiece`, `protobuf`) 설치
+2. `nvidia-smi`로 VRAM 확인 → **40GB 미만이면 자동으로 4bit 양자화**(`--four_bit` 플래그) 적용, 그 이상이면 bf16 그대로
+3. torch가 GPU를 제대로 보는지 확인(안 보이면 CUDA 버전 안내 메시지와 함께 중단)
+4. 4개 모델의 logit descriptor를 순서대로 계산해서 `local_descriptors/mix-instruct-logit/`에 저장
+
+**재실행 안전함**: 이미 계산된 `.npy` 파일이 있으면 건너뛰고, 중간에 실패한 모델만 재시도 — 다운로드 도중 끊겨도 처음부터 다시 할 필요 없음.
+
+**구현 세부사항**: 원본 `load_model_and_tokenizer()`(`src/router/utils.py`)는 기본 bf16 로드만 지원했음(4bit 양자화 없음) — `four_bit: bool = False` 파라미터를 추가하고, `True`일 때 `BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4", ...)`를 써서 로컬에서 썼던 것과 동일한 NF4 양자화 경로를 추가함(`scripts/compute_descriptors.py --four_bit`로 노출). 원본 코드에 moss-moon-003-sft용 토크나이저 우회(`revision="refs/pr/6"`)가 이미 들어있어서 호환성 이슈는 낮을 것으로 예상.
+
+**스크립트가 자동으로 안 하는 것(판단이 필요해서 의도적으로 남겨둠)**:
+- `experts/pool-mix-instruct-7.json`을 11개로 확장할지 여부, FAISS 인덱스 재구성 — 11개로 확장하면 학습 pool이 커져서 cost-band 붕괴 문제(13번 섹션)가 완화될 수도 있음, 확인해볼 가치 있음.
+- Multi-seed n_bands 재검증(13번 섹션 미완료 과제)이나 RouterBench mistral-7b-chat descriptor 계산 — 서버 여유 되면 같이 진행 가능.
