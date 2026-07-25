@@ -266,7 +266,7 @@ def paired_bootstrap_audc(factory_a,
             rate = done / max(elapsed, 1e-9)
             remaining = B - done
             eta = remaining / max(rate, 1e-9)
-            print(f"[Bootstrap ΔAUDC] {done}/{B} ({done/B:0.1%}) | elapsed {elapsed:.1f}s | ETA {eta:.1f}s", flush=True)
+            print(f"[Bootstrap DeltaAUDC] {done}/{B} ({done/B:0.1%}) | elapsed {elapsed:.1f}s | ETA {eta:.1f}s", flush=True)
 
     lo, hi = np.percentile(deltas, [2.5, 97.5])
     p_one_sided = (1 + (deltas <= 0).sum()) / (B + 1)
@@ -398,7 +398,7 @@ def paired_bootstrap_audc_cached(costs_a: np.ndarray,
             rate = done / max(elapsed, 1e-9)
             remaining = B - done
             eta = remaining / max(rate, 1e-9)
-            print(f"[Bootstrap ΔAUDC — fast] {done}/{B} ({done/B:0.1%}) | elapsed {elapsed:.1f}s | ETA {eta:.1f}s", flush=True)
+            print(f"[Bootstrap DeltaAUDC - fast] {done}/{B} ({done/B:0.1%}) | elapsed {elapsed:.1f}s | ETA {eta:.1f}s", flush=True)
 
     lo, hi = np.percentile(deltas, [2.5, 97.5])
     p_one_sided = (1 + (deltas <= 0).sum()) / (B + 1)
@@ -578,11 +578,11 @@ def main():
             mean_delta, (ci_lo, ci_hi), p_boot = paired_bootstrap_audc_cached(
                 costs_a, Y_a, costs_b, Y_b, B=args.bootstrap_B, seed=0
             )
-            print(f"[Bootstrap ΔAUDC — fast] mean Δ = {mean_delta:.6f}, 95% CI = [{ci_lo:.6f}, {ci_hi:.6f}], one-sided p = {p_boot:.6g}")
+            print(f"[Bootstrap DeltaAUDC - fast] mean delta = {mean_delta:.6f}, 95% CI = [{ci_lo:.6f}, {ci_hi:.6f}], one-sided p = {p_boot:.6g}")
 
             
             mc = mcnemar_at_matched_cost_cached(costs_a, Y_a, costs_b, Y_b, target_mode=args.sig_target)
-            print(f"[McNemar @ matched cost={mc['target_cost']:.3f} — fast] "
+            print(f"[McNemar @ matched cost={mc['target_cost']:.3f} - fast] "
                   f"n10={mc['n10']}, n01={mc['n01']}, win_rate={mc['win_rate']:.3f}, p={mc['p']:.3g}")
         else:
             
@@ -590,7 +590,7 @@ def main():
             mean_delta, (ci_lo, ci_hi), p_boot = paired_bootstrap_audc(
                 factory_a, factory_b, lam_list, dataset, args.cost_type, B=args.bootstrap_B, seed=0
             )
-            print(f"[Bootstrap ΔAUDC] mean Δ = {mean_delta:.6f}, 95% CI = [{ci_lo:.6f}, {ci_hi:.6f}], one-sided p = {p_boot:.6g}")
+            print(f"[Bootstrap DeltaAUDC] mean delta = {mean_delta:.6f}, 95% CI = [{ci_lo:.6f}, {ci_hi:.6f}], one-sided p = {p_boot:.6g}")
 
             mc = mcnemar_at_matched_cost(factory_a, factory_b, lam_list, dataset, args.cost_type,
                                          candidates=POOL, target_mode=args.sig_target)

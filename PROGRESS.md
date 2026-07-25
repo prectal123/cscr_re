@@ -116,8 +116,8 @@ Cell 9(perplexity, mix-instruct) 최초 실행 시 크래시 발생 → 원인 �
 1. ✅ **완료**: Logit·perplexity descriptor 둘 다 192차원으로 7개 모델 전부 재계산 (`local_descriptors/mix-instruct-logit/`, `local_descriptors/mix-instruct-perplexity/`)
 2. ✅ **완료**: 벡터 분포 분석 — 11번 섹션 참고
 3. ✅ **완료**: 7개 모델 pool로 벤치마크 필터링 — 12번 섹션 참고
-4. **다음**: Query encoder(MLP) 학습 — `scripts/train_query_encoder.py --dataset mix-instruct --desc_dir local_descriptors/mix-instruct-logit --pool experts/pool-mix-instruct-7.json --out_dir <출력경로>` (perplexity로 학습하려면 `--desc_dir`만 바꾸면 됨)
-5. Deferral curve 실험 결과 재현 — `scripts/run_audc_eval.py` + AUDC/QNC/Peak 지표로 논문 Table 1/4 형식과 비교
+4. ✅ **완료**: Query encoder(MLP) 학습(logit descriptor 기준) — 13번 섹션 참고
+5. ✅ **완료(1차)**: Deferral curve 재현 — 13번 섹션 참고. **재현하다가 논문에는 없던 새로운 실패 모드(cost-band 붕괴)를 발견해서, 이게 오히려 발표의 핵심 내용이 될 가능성이 큼.** Multi-seed 검증은 다음 세션 과제로 남음.
 
 **부가 트랙(스코프 밖, 참고용)**: RouterBench(perplexity는 무료), 다중 시드 Table 4 재현, Lexical Fingerprint 실제 구현(화이트박스는 기존 logit 코드 재사용, 블랙박스는 temperature=1.0 반복 샘플링 — 다른 온도값은 원 분포를 편향시켜서 안 됨). **3주 발표 스코프상 이것들까지 완전히 할 필요는 없음.**
 
@@ -213,3 +213,50 @@ Section 3.1.2가 "N = K로 맞춰야 두 descriptor가 같은 단위구(unit sph
 1. `git clone`/`pull`로 `experts/pool-mix-instruct-7.json`, `local_descriptors/`, `local_data/`를 그대로 받음(전부 git에 커밋되어 있어 수동 파일 이동 불필요, 총 ~1MB).
 2. 4단계(MLP 학습)에 `--pool experts/pool-mix-instruct-7.json --desc_dir local_descriptors/mix-instruct-logit`(또는 `-perplexity`) 옵션만 넘기면 자동으로 7개 pool 기준으로 필터링된 데이터셋이 만들어짐 — 원본 11개 모델 데이터셋 파일 자체를 건드리거나 별도 전처리 스크립트를 돌릴 필요 없음.
 3. 이 단계는 GPU가 전혀 필요 없음(descriptor는 이미 계산되어 있고, MixInstructOracle 필터링은 순수 CPU 텍스트/라벨 처리) — 4GB VRAM 노트북에서도 문제없이 재현 가능.
+
+---
+
+## 13. 4-5단계 — Query encoder 학습 + Deferral curve 재현, 그리고 예상 못한 발견 (2026-07-25)
+
+### 4단계: MLP 학습
+
+`scripts/train_query_encoder.py`로 logit descriptor 기준 학습. 아키텍처: frozen `sentence-transformers/all-MiniLM-L6-v2` CLS 토큰 → 2-layer MLP(학습 대상, 22만 파라미터) → L2 정규화. Loss는 논문의 Cost-Spectrum InfoNCE(`cost_spectrum_info_nce`, Eq.8 버전, 9번 섹션 참고).
+
+**실측 성능** (RTX 5060 Ti 8GB): 데이터 로드 19초 + 인코더 로드 7초 + 학습 자체 2 epoch에 66초(step당 21ms). **GPU 메모리 111MB**로 4GB 노트북에서도 CPU만으로도 충분히 재현 가능한 수준.
+
+### 5단계: Deferral curve 재현 + 겪은 버그들
+
+`scripts/run_audc_eval.py`로 knn(우리 학습된 라우터)/random/oracle 비교. 겪은 이슈들:
+
+1. **`--k 1`로 처음 돌렸더니 KNN 커브가 완전 수평선** — `KNNRouter`가 FAISS에서 top-k만 후보로 뽑은 뒤 그 안에서 λ(비용)로 저울질하는데, k=1이면 후보가 하나뿐이라 저울질 자체가 불가능. **`--k 7`(pool 전체)로 바꿔야 실제 cost-accuracy trade-off가 나타남.**
+2. **플롯이 논문과 다르게 x축 간격이 고르다는 사용자 지적** — `run_audc_eval.py`의 내장 플롯은 AUDC 적분용으로 만든 인위적 균등 그리드(`build_cost_grid`+`interp_to_grid`)를 그리고 있었음. `--save_curve`가 저장하는 pickle은 보간 전 raw `(cost, acc)`를 담고 있어서, 그걸로 다시 그리면 논문처럼 불규칙한 뭉침이 나옴(주로 `λ`가 로그 간격이라 저λ 구간에 점들이 몰림). x축 단위도 `n_params × 0.03`이라 raw B로 보려면 0.03으로 나눠야 함.
+3. **Windows 콘솔 유니코드 크래시** — `run_audc_eval.py`의 4곳(em-dash `—`, Δ 포함 print문)이 cp949에서 크래시. ASCII로 교체(`DeltaAUDC`, 일반 하이픈)해서 수정, 유의성 검정(bootstrap) 로직 자체는 정상 작동 확인됨.
+
+### 핵심 발견: Cost-band가 작은 pool에서 완전히 붕괴함
+
+AUDC 결과 (`k=7`, `n_bands=5`, 2 epoch): knn=0.0386 vs random=0.0377 (+2.4%, bootstrap p=0.004로 통계적 유의). 근데 raw curve를 뜯어보니 **중간 비용 구간(~7B)에서 KNN이 random보다 오히려 낮음**(0.027 vs 0.037).
+
+원인을 진단한 결과(`k=7`, 검증셋 5000개 프롬프트에서 특정 λ의 라우팅 분포 확인): 학습된 라우터가 **프롬프트별 판단을 전혀 안 하고, 그 순간 (유사도−λ·비용) 점수가 제일 높은 전문가 단 하나에 전체 프롬프트를 통째로 몰아줌**:
+- λ≈0 (비용압박 없음): oasst-pythia-12b 72%
+- λ=0.616 (딥 지점): stablelm 98.7%
+- λ=48.3 (최대압박): chatglm-6b 99.9%
+
+**`n_bands` sweep(5→3→2→1)으로 원인 추가 확인**: 각기 다른 밴드 수로 재학습했더니 AUDC가 5(+2.4%) → 3(-21%) → 2(-17%) → 1(+9.5%)로 들쭉날쭉. 처음엔 "밴드가 적을수록 좋다"로 오해했으나, 라우팅 분포를 까보니 **밴드 개수가 원인이 아니라 각 학습이 우연히 어떤 전문가 하나에 수렴했는지가 전부**였음:
+- n_bands=3, 2: 둘 다 독립적으로 **flan-t5-xxl**(94~99.6%)에 붕괴 — 이 모델의 평균 정확도가 낮아서(0.018~0.019) AUDC가 나쁘게 나옴
+- n_bands=1: **alpaca-native**(99.6%)에 붕괴 — 이 모델은 평균 정확도가 높아서(0.047) AUDC가 좋게 나옴
+- n_bands=5(원본): **oasst-pythia-12b**(72%)에 붕괴, 역시 평균 정확도 높음(0.048)
+
+flan-t5-xxl이 두 번이나 독립적으로 붕괴 대상이 된 건 우연이 아닐 수 있음 — 유일한 인코더-디코더(T5) 구조라 descriptor 공간에서 나머지 6개(전부 디코더 전용)와 구조적으로 떨어진 outlier였음(11번 섹션의 gap 분석에서도 flan-t5-xxl 관련 쌍들이 유독 낮은 유사도를 보였음).
+
+**결론(발표 핵심 논지 후보)**: `n_bands` 설정이나 pool 크기 자체보다, **Cost-Spectrum InfoNCE가 7개짜리 작은 pool에서는 프롬프트 조건부 라우팅을 전혀 학습 못 하고, 매 학습마다(랜덤 시드에 따라) 서로 다른 단일 "favorite" 전문가로 붕괴한다**는 게 핵심 관찰. AUDC가 좋게 나오는지 나쁘게 나오는지는 그 붕괴 대상이 우연히 성능 좋은 모델이었는지에 달려있어서, 재현성이 없음. **다음 검증 과제**: 같은 설정으로 시드만 바꿔 3~5회 반복해서 이 붕괴 패턴이 진짜 일관된 현상인지 확인 필요(아직 미완료).
+
+### 결과물 위치
+- `local_descriptors/analysis/deferral_curve_logit_nbands{5,3,2,1}_raw.png`: 각 n_bands의 raw curve
+- `local_descriptors/analysis/deferral_curve_logit_nbands_comparison.png`: 4개 비교 한 그래프
+- `local_checkpoints/deferral_curve_logit*.pkl`: raw (cost, acc) 데이터
+- `local_checkpoints/slim/query-encoder-logit*/`: 학습된 MLP 체크포인트 경량판(`proj.pt`+`config.json`만, 각 ~900KB). Frozen base(MiniLM, 87MB)는 4개 런 전부 동일해서 git에 중복 저장 안 하고, `scripts/load_slim_encoder.py`로 base를 HF에서 새로 받아 재조립함:
+  ```python
+  from scripts.load_slim_encoder import load_slim_encoder
+  encoder = load_slim_encoder("local_checkpoints/slim/query-encoder-logit")
+  ```
+  기숙사 컴퓨터에서는 이걸로 재학습 없이 바로 라우터 복원 가능(인터넷으로 MiniLM 90MB 한 번만 받으면 됨).
