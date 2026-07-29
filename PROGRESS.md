@@ -5,16 +5,20 @@
 
 ---
 
-## 0. TL;DR — 2026-07-25 세션 종료 시점, 다음은 여기서부터
+## 0. TL;DR — 2026-07-29 세션 종료 시점, 다음은 여기서부터
 
-**여기까지 끝난 것**: 5단계 계획(1~5번, 7번 섹션) 전부 1차 완료. Logit·perplexity descriptor 7개 모델분 재계산 → 벡터 기하학 분석(rho≈0, 논문 반박 핵심 증거) → 7개 pool로 벤치마크 필터링 → MLP 학습 → deferral curve 재현까지 다 돌아감.
+**중간 발표(내일 랩미팅)용 정리 문서가 따로 있음** — 재구현+Observation만 깔끔하게 정리한 건 `MIDTERM_SUMMARY.md` 참고(개선 방안은 의도적으로 제외돼 있음). 새 FP 방법론 아이디어(v1.1 Lexical FP, v1.2 LLM 백본 전문성 임베딩)는 `FP_IDEAS.md`에 별도 기록.
 
-**세션 막바지 핵심 발견(13번 섹션)**: 학습된 라우터가 프롬프트를 거의 무시하고 매번 랜덤하게 전문가 1명한테 붕괴함(n_bands sweep으로 확인, 98~99%가 단일 전문가로 쏠림). **이게 예상 못한 결과지만 오히려 발표 핵심 소재로 쓸 만함** — "Cost-Spectrum InfoNCE가 작은 pool에서 프롬프트 조건부 라우팅을 전혀 학습 못 한다"는 논지.
+**이번 세션에 새로 완료한 것**:
+1. **Capability vector 구축**: bartscore 기반, 7개 모델 × 105,000 프롬프트(train+validation 합침), L2 정규화. `local_descriptors/mix-instruct-capability/` — 분산/응집도 점검 완료(건전함 확인), bartscore 자체의 confound(응답 길이 r=0.24~0.31, 짧은 reference일수록 모델 간 편차 커짐 r=-0.45)도 발견.
+2. **RSA 3자 비교 완료**: Logit vs Capability(rho=-0.252, p=0.411), Perplexity vs Capability(rho=-0.226, p=0.422) — 기존 Logit vs Perplexity(rho=-0.079, p=0.762)와 함께, **셋 다 서로 무관하다는 결론이 삼각검증됨.** 스크립트: `scripts/rsa_capability_alignment.py`.
+3. **종합 스칼라 지표 추가**(가시성 피드백 반영, 원값 대신 순위 기반): Kendall's W=0.2095(p=0.9346, 유의하지 않음), 평균 순위 이동량 7.6~7.7/21(무작위 기준선 6.99/21과 구분 안 됨). 스크립트: `scripts/rank_agreement_scalars.py`.
+4. **시각화 2종**: `local_descriptors/analysis/rsa_scatter_3way.png`(3쌍 산점도), `rank_bump_3way.png`(3쌍 rank bump chart, 기존 `gap_rank_bump.png`와 같은 스타일로 확장) — 색상은 비교쌍별로 통일(파랑=Logit/Perp, 주황=Logit/Cap, 초록=Perp/Cap).
+5. 논문 Appendix D의 정확한 하이퍼파라미터 확인(batch_size=512, lr=5e-4, 10 epochs, K=5, λ=0.1, α=0.25, τ_min=0.05) — pool 크기별 조정 언급 없음, 6.2번 붕괴 현상과 batch_size 관계 가설의 배경 근거.
 
-**다음에 할 일 (우선순위 순)**:
-1. **Multi-seed 검증** (13번 섹션 미완료 과제) — 같은 설정(`n_bands=5`)으로 3~5번 재학습해서 방금 발견한 "붕괴가 랜덤하다"는 게 진짜인지 확인. GPU 거의 안 씀(111MB), 로컬/기숙아 노트북 어디서든 바로 가능.
-2. **GPU 서버 접속해서 pool 확장** (14번 섹션) — `git clone` 후 `bash scripts/setup_and_run_gpu_server.sh` 한 줄이면 `moss-moon-003-sft`(16B) + `baize` logit descriptor 계산 시도(성공하면 7→9개 pool). **주의**: `dolly-v2-12b`/`mpt-7b-instruct`는 저장소 자체가 사라져서 시도 안 함(영구 제외).
-3. pool이 8~9개로 늘면 위 1~5단계(특히 4~5단계 MLP 학습·deferral curve)를 확장된 pool로 재실행 — 붕괴 문제가 pool 크기 때문인지 다시 검증 가능.
+**이전 세션(07-25)에서 이어지는 미완료 과제**:
+1. **Multi-seed 검증** (13번 섹션) — 논문 명시 하이퍼파라미터(위 5번) 그대로 baseline을 먼저 재현하고, 그다음 batch_size/MARGIN을 baseline과 분리된 "진단용 ablation"으로 다루기(MIDTERM_SUMMARY.md 10번 섹션 참고, "개선 시도"가 아니라 "왜 이런 결과가 나오는지 규명"이라는 프레이밍 유지할 것). 환경(`.venv-check`, 로컬 CPU로 충분)은 준비 완료, 아직 실행 전.
+2. **GPU 서버 접속해서 pool 확장** (14번 섹션) — `moss-moon-003-sft`, `baize` logit descriptor 시도. 아직 미실행.
 
 **기숙아 노트북(4GB VRAM)에서 재개하는 법**: `git clone`/`pull`만 하면 descriptor·probe·학습된 MLP(경량판)까지 다 딸려옴. MLP 재학습 없이 바로 쓰려면:
 ```python
