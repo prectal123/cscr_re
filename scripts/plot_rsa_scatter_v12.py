@@ -52,6 +52,9 @@ def main():
     ap.add_argument("--v12_dir", default="local_descriptors/mix-instruct-v12")
     ap.add_argument("--capability_dir", default="local_descriptors/mix-instruct-capability")
     ap.add_argument("--out", default="local_descriptors/analysis/rsa_scatter_v12_vs_capability.png")
+    ap.add_argument("--fixed_axes", action="store_true",
+                     help="use fixed [0,1] axes instead of zooming to the actual data range "
+                          "(see module docstring for why zoomed is the default)")
     args = ap.parse_args()
 
     pool = json.load(open(args.pool))
@@ -70,24 +73,34 @@ def main():
     color = "#C4553B"
     ax.scatter(x, y, s=80, color=color, edgecolor="black", linewidth=0.6, zorder=3)
 
-    pad_x = (x.max() - x.min()) * 0.15
-    pad_y = (y.max() - y.min()) * 0.15
-    xlo, xhi = x.min() - pad_x, x.max() + pad_x
-    ylo, yhi = y.min() - pad_y, y.max() + pad_y
+    if args.fixed_axes:
+        xlo, xhi, ylo, yhi = 0.0, 1.0, 0.0, 1.0
+        axes_desc = "fixed [0,1] axes"
+    else:
+        pad_x = (x.max() - x.min()) * 0.15
+        pad_y = (y.max() - y.min()) * 0.15
+        xlo, xhi = x.min() - pad_x, x.max() + pad_x
+        ylo, yhi = y.min() - pad_y, y.max() + pad_y
+        axes_desc = "axes zoomed to actual data range"
     ax.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1.2, zorder=1,
             label="perfect agreement (rho=1)")
     ax.set_xlim(xlo, xhi)
     ax.set_ylim(ylo, yhi)
+    if args.fixed_axes:
+        ax.set_aspect("equal")
     ax.set_xlabel("v1.2 (JSON->MiniLM) cosine similarity")
     ax.set_ylabel("Capability (bartscore) cosine similarity")
     sig = "significant" if p < 0.05 else "not significant"
-    ax.set_title(f"v1.2 vs Capability (axes zoomed to actual data range)\n"
+    ax.set_title(f"v1.2 vs Capability ({axes_desc})\n"
                  f"rho={rho:+.3f}, p={p:.3f} ({sig}, exact Mantel)", fontsize=11)
     ax.grid(alpha=0.3, linestyle=":")
     ax.legend(fontsize=8, loc="upper left")
 
+    zoom_note = ("fixed to [0,1], matching plot_rsa_scatter.py's convention"
+                  if args.fixed_axes else
+                  "zoomed -- NOT [0,1] -- to show the real spread")
     fig.suptitle("Do pairwise similarity rankings agree between v1.2 and true capability?\n"
-                  "(each point = one model pair; axes zoomed -- NOT [0,1] -- to show the real spread)",
+                  f"(each point = one model pair; axes {zoom_note})",
                   fontsize=11, y=1.06)
     fig.tight_layout()
     out_path = Path(args.out)
