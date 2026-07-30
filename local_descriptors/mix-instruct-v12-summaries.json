@@ -1,0 +1,68 @@
+{
+  "eachadea__vicuna-13b-1.1": {
+    "strengths": "When on-task, gives accurate and well-organized answers, correctly explaining technical topics and getting specific facts right more often than most peers.",
+    "performance": "Medium-high: strong when engaged, but reliability is inconsistent across prompts.",
+    "flaws": "Frequently drifts into unrelated follow-on content after answering, invents a fake forum Q&A framing not present in the prompt, and responses are often truncated mid-sentence.",
+    "traits": "Adds fabricated question-and-answer scaffolding; long responses; occasional severe off-topic derailment."
+  },
+  "TheBloke__koala-7B-HF": {
+    "strengths": "Organizes multi-step answers into clear numbered lists when it does engage with the actual question.",
+    "performance": "Low: most frequently fails to address the prompt at all among the pool.",
+    "flaws": "Systematically avoids answering by generating lists of tangentially related questions instead of a response; fabricates content (e.g. invented physics equations) when forced to answer directly.",
+    "traits": "Q&A-continuation pattern dominates output; numbered-list formatting; weak instruction adherence."
+  },
+  "stabilityai__stablelm-tuned-alpha-7b": {
+    "strengths": "Capable of coherent, structured tip-lists on practical topics when not derailed into narrative mode.",
+    "performance": "Low: least reliable on factual, technical, or list-based tasks in the pool.",
+    "flaws": "Prone to verbatim repetition loops within a single response, drifts into unrelated fictional narrative regardless of task type, and produces clear historical/factual hallucinations.",
+    "traits": "Repetition loops; narrative drift; occasional fully incoherent output on structured tasks."
+  },
+  "OpenAssistant__oasst-sft-4-pythia-12b-epoch-3.5": {
+    "strengths": "Consistently direct, on-topic, and appropriately concise across every prompt type observed, with no format failures or drift.",
+    "performance": "High: the most reliably task-adherent and well-calibrated model in the pool.",
+    "flaws": "Minor factual imprecision on some dates/details, but never wildly hallucinated or off-task.",
+    "traits": "Stable moderate length; direct answers; low variance in quality across topics."
+  },
+  "google__flan-t5-xxl": {
+    "strengths": "Correct and appropriately terse on simple factual lookup questions.",
+    "performance": "Mixed: fine on simple recall, breaks down sharply on complex, technical, or creative tasks.",
+    "flaws": "Cannot elaborate: even creative-writing or multi-step prompts get a single flat sentence, and complex technical questions sometimes produce outright gibberish.",
+    "traits": "Extreme, universal terseness; near-zero elaboration; unable to sustain longer generation."
+  },
+  "chavinlo__alpaca-native": {
+    "strengths": "Generally answers the question directly with coherent, complete, moderate-length responses.",
+    "performance": "Medium: reliable most of the time, with occasional clear lapses.",
+    "flaws": "Occasionally drifts into unrelated continuation content after answering, contains some factual errors, and rarely ignores the prompt to list unrelated questions instead.",
+    "traits": "Mostly on-task; occasional topic drift; infrequent but real factual slips."
+  },
+  "THUDM__chatglm-6b": {
+    "strengths": "Generally attempts to directly and thoroughly address the prompt with structured, numbered explanations.",
+    "performance": "Medium-low: on-task but frequently undermined by confidently stated factual errors.",
+    "flaws": "Pervasive leakage of Chinese words and phrases into English output, and a notable tendency toward confidently incorrect factual claims.",
+    "traits": "Systematic bilingual leakage; numbered-list structure; overconfident on facts it gets wrong."
+  },
+  "mosesjun0h__llama-7b-hf-baize-lora-bf16": {
+    "strengths": "Content is generally accurate and reasonably well-organized when it stays on the actual question.",
+    "performance": "Medium: solid underlying answers, undercut by a distinct formatting habit.",
+    "flaws": "Frequently appends fabricated follow-up Q&A pairs after answering, and occasionally leaks raw chat-format markup tags into the output.",
+    "traits": "Self-generated bonus questions; occasional dialogue-tag leakage; some verbatim self-repetition."
+  },
+  "databricks__dolly-v2-12b": {
+    "strengths": "Occasionally produces accurate, focused answers when generation stays stable.",
+    "performance": "Low: the most erratic and unreliable model in the pool.",
+    "flaws": "Frequent severe verbatim repetition loops, domain-mismatched non-sequitur output (e.g. code or linguistic tags for unrelated prompts), and poor arithmetic/reasoning accuracy.",
+    "traits": "Repetition-loop collapse is dominant; unstable across almost every response type."
+  },
+  "fnlp__moss-moon-003-sft": {
+    "strengths": "Generally direct, organized, on-topic answers with clear numbered structure; handles basic arithmetic and coding correctly.",
+    "performance": "Medium-high: among the more functional and organized models in the pool.",
+    "flaws": "Consistently appends self-generated, fabricated bonus Q&A pairs unrelated to the original prompt after the main answer.",
+    "traits": "Unprompted extra-question generation; numbered-list structure; generally coherent."
+  },
+  "mosaicml__mpt-7b-instruct": {
+    "strengths": "Produces coherent, factual content when it stays focused on the prompt.",
+    "performance": "Low-medium: frequently undermined by mid-response derailment.",
+    "flaws": "Very often drifts mid-generation into unrelated, seemingly web-scraped content (ads, unrelated trivia), and struggles with quantitative reasoning.",
+    "traits": "Topical derailment into unrelated training-data fragments; occasional hashtag or list-filler spam."
+  }
+}

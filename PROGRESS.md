@@ -5,20 +5,20 @@
 
 ---
 
-## 0. TL;DR — 2026-07-29 세션 종료 시점, 다음은 여기서부터
+## 0. TL;DR — 2026-07-30 세션 종료 시점, 다음은 여기서부터
 
-**중간 발표(내일 랩미팅)용 정리 문서가 따로 있음** — 재구현+Observation만 깔끔하게 정리한 건 `MIDTERM_SUMMARY.md` 참고(개선 방안은 의도적으로 제외돼 있음). 새 FP 방법론 아이디어(v1.1 Lexical FP, v1.2 LLM 백본 전문성 임베딩)는 `FP_IDEAS.md`에 별도 기록.
+**중간 발표(랩미팅)용 정리 문서가 따로 있음** — 재구현+Observation만 깔끔하게 정리한 건 `MIDTERM_SUMMARY.md` 참고(개선 방안은 의도적으로 제외돼 있음). 새 FP 방법론 아이디어(v1.1 Lexical FP, v1.2 LLM 백본 전문성 임베딩)는 `FP_IDEAS.md`에 별도 기록.
 
-**이번 세션에 새로 완료한 것**:
-1. **Capability vector 구축**: bartscore 기반, 7개 모델 × 105,000 프롬프트(train+validation 합침), L2 정규화. `local_descriptors/mix-instruct-capability/` — 분산/응집도 점검 완료(건전함 확인), bartscore 자체의 confound(응답 길이 r=0.24~0.31, 짧은 reference일수록 모델 간 편차 커짐 r=-0.45)도 발견.
-2. **RSA 3자 비교 완료**: Logit vs Capability(rho=-0.252, p=0.411), Perplexity vs Capability(rho=-0.226, p=0.422) — 기존 Logit vs Perplexity(rho=-0.079, p=0.762)와 함께, **셋 다 서로 무관하다는 결론이 삼각검증됨.** 스크립트: `scripts/rsa_capability_alignment.py`.
-3. **종합 스칼라 지표 추가**(가시성 피드백 반영, 원값 대신 순위 기반): Kendall's W=0.2095(p=0.9346, 유의하지 않음), 평균 순위 이동량 7.6~7.7/21(무작위 기준선 6.99/21과 구분 안 됨). 스크립트: `scripts/rank_agreement_scalars.py`.
-4. **시각화 2종**: `local_descriptors/analysis/rsa_scatter_3way.png`(3쌍 산점도), `rank_bump_3way.png`(3쌍 rank bump chart, 기존 `gap_rank_bump.png`와 같은 스타일로 확장) — 색상은 비교쌍별로 통일(파랑=Logit/Perp, 주황=Logit/Cap, 초록=Perp/Cap).
-5. 논문 Appendix D의 정확한 하이퍼파라미터 확인(batch_size=512, lr=5e-4, 10 epochs, K=5, λ=0.1, α=0.25, τ_min=0.05) — pool 크기별 조정 언급 없음, 6.2번 붕괴 현상과 batch_size 관계 가설의 배경 근거.
+**이번 세션(07-30)에 새로 완료한 것 — 자세한 내용은 15번 섹션**:
+1. **EmbedLLM pool을 하드웨어 제약별로 필터링**: 3090 2장/4장, Colab 16GB 단일 GPU, "적당히 작은 50개" 등 여러 규격으로 `experts/pool-embedllm-*.json` 생성. 그 과정에서 registry의 MoE 모델 n_params 오표기(`Mixtral-8x7B`가 7B로 잘못 기재, 실제 47B) 및 `dolly-v2-12b` 저장소 삭제 이슈를 EmbedLLM 쪽에서도 재확인해서 전부 제외 처리. `src/router/utils.py`의 `SUS-Chat-72B` 로딩 분기가 `four_bit`를 무시하던 버그도 수정(안 고치면 4x3090에서도 OOM).
+2. **v1.2 FP 방법론 프로토타입 검증(핵심)**: 실제 probe 응답을 읽고 강점/성능/하자/특징 JSON을 작성 → MiniLM 임베딩 → capability vector와 RSA 비교. **7개 pool: rho=+0.434(p=0.241), 11개로 확장: rho=+0.318(p=0.190)** — 지금까지 나온 어떤 descriptor(Logit, Perplexity)보다 방향(양의 상관)과 크기 모두 낫지만, 여전히 통계적으로 유의하진 않음. **평균 순위 이동량(5.24/21, p=0.155)이 이 프로젝트에서 나온 모든 비교 중 가장 낮은 p값** — 무작위 기준선(6.98/21)보다 확실히 덜 흔들림. 상세 수치·주의점은 15번 섹션.
+3. **⚠️ 방법론 교훈**: 산점도를 고정 [0,1] 축으로 그리면(기존 `plot_rsa_scatter.py` 관행) 약한 상관관계가 실제보다 타이트해 보이는 착시가 생김 — "관계가 있다"를 주장하는 차트(v1.2 관련)는 반드시 실제 데이터 범위로 축을 확대해서 그릴 것. `scripts/plot_rsa_scatter_v12.py`에 반영함.
+4. **오늘 밤 진행 예정**: `colab/test_v12_backbones.py` — 지금까지의 프로토타입은 Claude가 직접 요약문을 쓴 것(상한선 테스트)이라, 실제 가벼운 백본 모델(Phi-3-mini, Mistral-7B-Instruct) × instruction 3종 조합으로 진짜 파이프라인이 같은 신호를 내는지 검증 예정. 아직 미실행.
 
-**이전 세션(07-25)에서 이어지는 미완료 과제**:
-1. **Multi-seed 검증** (13번 섹션) — 논문 명시 하이퍼파라미터(위 5번) 그대로 baseline을 먼저 재현하고, 그다음 batch_size/MARGIN을 baseline과 분리된 "진단용 ablation"으로 다루기(MIDTERM_SUMMARY.md 10번 섹션 참고, "개선 시도"가 아니라 "왜 이런 결과가 나오는지 규명"이라는 프레이밍 유지할 것). 환경(`.venv-check`, 로컬 CPU로 충분)은 준비 완료, 아직 실행 전.
+**이전 세션들에서 이어지는 미완료 과제**:
+1. **Multi-seed 검증** (13번 섹션) — 논문 명시 하이퍼파라미터 그대로 baseline 재현 후 ablation. 환경 준비 완료, 아직 실행 전.
 2. **GPU 서버 접속해서 pool 확장** (14번 섹션) — `moss-moon-003-sft`, `baize` logit descriptor 시도. 아직 미실행.
+3. **EmbedLLM descriptor 계산** (15번 섹션) — pool 규격은 정했지만 Colab Pro/Pro+ 등 실행 환경 결정 및 실제 계산은 아직.
 
 **기숙아 노트북(4GB VRAM)에서 재개하는 법**: `git clone`/`pull`만 하면 descriptor·probe·학습된 MLP(경량판)까지 다 딸려옴. MLP 재학습 없이 바로 쓰려면:
 ```python
@@ -317,3 +317,69 @@ bash scripts/setup_and_run_gpu_server.sh
 **스크립트가 자동으로 안 하는 것(판단이 필요해서 의도적으로 남겨둠)**:
 - `experts/pool-mix-instruct-7.json`을 8~9개로 확장할지 여부, FAISS 인덱스 재구성 — pool이 커지면 학습 pool이 커져서 cost-band 붕괴 문제(13번 섹션)가 완화될 수도 있음, 확인해볼 가치 있음.
 - Multi-seed n_bands 재검증(13번 섹션 미완료 과제)이나 RouterBench mistral-7b-chat descriptor 계산 — 서버 여유 되면 같이 진행 가능.
+
+---
+
+## 15. EmbedLLM pool 규격화 + v1.2 프로토타입 검증 (2026-07-30)
+
+### 15.1 EmbedLLM — 하드웨어 제약별 pool 필터링
+
+**배경**: MixInstruct는 pool 확장이 사실상 막힘(11개 중 7개 확정, 2개 영구 제외, 2개 GPU서버 대기) — 그래서 EmbedLLM(115개 모델)에서 pool을 넓히는 쪽으로 방향 전환. 다만 랩실 서버 스펙(디스크/GPU 대수)이 아직 불확실해서, 여러 시나리오별로 pool을 미리 만들어둠.
+
+**VRAM 추정 공식**: 4bit NF4 기준 `n_params(B) × 0.6GB + 2.5GB` (로컬에서 실측한 "6개 모델 4bit ~38GB" 수치로 역산 검증됨).
+
+| 파일 | 조건 | 개수 | 비고 |
+|---|---|---|---|
+| `experts/pool-embedllm-3090x2.json` | 2×RTX3090(48GB) | 105 | 대부분 통과, 4x로 확장해도 10개(70~72B급)만 추가됨 |
+| `experts/pool-embedllm-3090x4.json` | 4×RTX3090(96GB) | 115 | 전체 |
+| `experts/pool-embedllm-colab16gb.json` | Colab T4/P100 단일(16GB) | 80 | ≤14B로 사실상 결정됨 |
+| `experts/pool-embedllm-colab16gb-stratified50.json` | 위 조건, 비용 스펙트럼 층화추출 | 50 | 0.5B~14B 고르게, 총 다운로드 ~807GB |
+| `experts/pool-embedllm-small50-naive.json` | 단순 용량 최소 50개 | 50 | 총 ~620GB지만 50개 중 45개가 7B에 몰려서 **cost-band 다양성이 거의 없음 — 비추천** |
+| `experts/pool-embedllm-small50-stratified.json` | 층화추출 50개(≤34B 포함) | 50 | 총 ~1,023GB, 34B급 4개 포함 |
+
+**만들면서 발견한 registry 데이터 문제** (`experts/registry-embedllm.json`):
+- `Mixtral-8x7B-Instruct-v0.1`이 `n_params: 7`로 잘못 기재됨 — HF API로 실측하니 실제 다운로드는 46.7GB(≈47B 총 파라미터). MoE 모델은 "전문가 1개 크기"를 등록해놓은 것으로 추정. `MixTAO-7Bx2-MoE`, `Plaban81/Moe-4x7b`도 같은 의심으로 전부 제외.
+- `databricks/dolly-v2-12b`가 EmbedLLM 쪽에도 있었음(MixInstruct에서 이미 저장소 삭제 확인된 그 모델과 동일) — 제외.
+- 위 두 문제 다 위 pool 파일들 생성 시 이미 제외 처리됨.
+
+**코드 수정**: `src/router/utils.py`의 `load_model_and_tokenizer()` — `SUSTech/SUS-Chat-72B` 분기가 `four_bit` 파라미터를 무시하고 항상 bf16으로 로드하던 버그 수정(72B bf16 = ~144GB VRAM 필요, 4x3090(96GB)에서도 OOM 났을 것). 4bit 지원 추가.
+
+**자동화**: `scripts/compute_embedllm_descriptors_batch.py` + `scripts/run_embedllm_batch.sh` — EmbedLLM은 MixInstruct와 달리 데이터셋에 응답 텍스트가 없어서(정답 라벨만 있음) perplexity를 "공짜로" 못 얻음 → logit descriptor 계산용 `model.generate()`의 생성 결과를 그대로 잡아채서 같은 pass에서 perplexity도 계산하도록 설계(모델을 두 번 안 돌림). 디스크 사전 점검(HF API로 예상 다운로드 용량 확인 후 여유 없으면 skip), 실패해도 계속 진행, 재실행 시 완료된 모델 스킵.
+
+**미결정**: 실제 서버(디스크 용량, 관리자)나 Colab 등급(Free/Pro/Pro+, VRAM·디스크·백그라운드 실행 제약 상이) 확정 전이라 아직 실행 안 함.
+
+### 15.2 v1.2 FP 방법론 — 첫 프로토타입 검증
+
+**목적**: `FP_IDEAS.md`의 v1.2("LLM 백본으로 모델 전문성을 자연어 요약 → 임베딩") 아이디어가 실제로 capability(bartscore)와 정렬되는지 사전 점검. Router 학습(붕괴 문제, 13번 섹션)을 거치지 않고 descriptor 자체의 품질만 독립적으로 검증하는 방법론(11번 섹션에서 이미 쓰던 RSA 프레임 재사용).
+
+**방법**: MixInstruct 데이터셋에서 각 모델의 실제 probe 응답(25개, 모델 실행 없이 데이터셋의 `candidates[].text`에서 직접 추출 — 다운로드/GPU 불필요)을 읽고, 강점(strengths)/성능(performance)/하자(flaws)/특징(traits) 4개 필드로 구성된 JSON을 모델당 1개씩 작성(**이번엔 Claude가 직접 요약 — 실제 v1.2가 의도한 "가벼운 백본 모델 1회 호출"이 아니라 파이프라인의 상한선을 테스트한 것임, 15.3의 Colab 스윕이 이 gap을 메움**). 필드 길이는 모델 간 45~66단어로 통일(bartscore의 길이 confound 재발 방지). 이 JSON을 `sentence-transformers/all-MiniLM-L6-v2`(QueryEncoder와 동일 백본)로 임베딩 → cosine similarity → RSA.
+
+**결과 (exact/Monte Carlo Mantel, 기존과 동일 통계 프레임)**:
+
+| 비교 | n=7 | n=11 |
+|---|---|---|
+| v1.2 vs Capability | rho=+0.434, p=0.241 | rho=+0.318, p=0.190 |
+| v1.2 vs Logit | rho=-0.455, p=0.093 (6쌍 중 가장 유의에 근접) | (Logit descriptor가 11개 전부 없어서 미계산) |
+| v1.2 vs Perplexity | rho=-0.138, p=0.604 | rho=-0.085, p=0.723 |
+| (참고) Logit vs Capability | rho=-0.252, p=0.411 | — |
+| (참고) Perplexity vs Capability | rho=-0.226, p=0.422 | rho=+0.021, p=0.936 (n=7일 때와 부호가 뒤집힘 — 이 표본 크기에서 결과가 얼마나 요동치는지 보여주는 방증) |
+
+**보조 지표(순위 기반, rho의 극단치 민감성 보완)**: Kendall tau=+0.286(p=0.271, exact), **평균 순위 이동량=5.24/21(p=0.155)** — 무작위 기준선(6.98/21)보다 확실히 적게 움직임. **이 프로젝트에서 나온 모든 descriptor-vs-capability 비교 중 가장 낮은 p값.**
+
+**해석 — 정직하게 정리**:
+- v1.2는 지금까지 나온 세 방법론(Logit, Perplexity, v1.2) 중 유일하게 capability와 **양의 방향**으로, 그리고 **가장 큰 크기**로 정렬됨. n=7→11로 늘려도 방향은 유지(다만 크기는 0.434→0.318로 줄어듦 — pool 확장이 신호를 강화하기보다는 노이즈를 더한 것으로 보임, 새로 들어온 4개 모델의 응답이 유독 불안정했던 것과 연결지어 해석 가능).
+- **통계적으로 확정된 결과는 아님**(p<0.05 없음, n이 작아 검정력 자체가 낮음).
+- 산점도로 시각 확인 중 **중요한 방법론 문제 발견**: 축을 고정 [0,1]로 그리면(기존 `plot_rsa_scatter.py` 관행) 실제 데이터가 좁은 범위(v1.2 0.67~0.86, capability 0.59~0.80)에 몰려있는 걸 감안 안 해서, 약한 상관관계(rho=0.43, R²≈0.19)가 시각적으로 훨씬 타이트해 보이는 착시가 생김. **`scripts/plot_rsa_scatter_v12.py`는 실제 데이터 범위로 확대해서 그리도록 수정함** — 이 문제는 "관계가 있다"를 주장하려는 차트(v1.2)에만 해당하고, 기존 3-way 비교("관계 없다"를 보여주는 차트)에는 영향 없음(확대해도 결론이 안 바뀌거나 오히려 더 무작위로 보임).
+
+**결과물**:
+- `local_descriptors/mix-instruct-v12-summaries.json`: 11개 모델의 강점/성능/하자/특징 JSON(Claude 작성)
+- `local_descriptors/mix-instruct-v12/*.npy`: MiniLM 임베딩(11개)
+- `local_descriptors/mix-instruct-capability-11/*.npy`: 11개 모델용 capability vector(기존 7개짜리와 별도 디렉토리, 105,000 프롬프트 100% dense)
+- `experts/pool-mix-instruct-11.json`: 11개 표준 이름 목록
+- `local_descriptors/analysis/rank_bump_v12_vs_capability.png`, `rsa_scatter_v12_vs_capability.png`(축 확대판)
+- 스크립트: `scripts/build_v12_embeddings.py`, `scripts/rsa_v12_alignment.py`, `scripts/plot_rank_bump_v12.py`, `scripts/plot_rsa_scatter_v12.py`
+- `scripts/build_capability_vectors.py`에 `--pool`/`--out_dir` 인자 추가(기존 하드코딩 제거, 7개/11개 둘 다 이 스크립트 하나로 생성 가능하게 일반화)
+
+### 15.3 다음 단계 — 실제 백본 모델로 검증 (오늘 밤 예정, 미실행)
+
+15.2는 Claude가 직접 요약문을 쓴 프로토타입이라 파이프라인의 상한선만 확인한 것. `colab/test_v12_backbones.py` 작성 완료(미실행) — 실제 가벼운 backbone 후보 2개(`microsoft/Phi-3-mini-4k-instruct` 3.8B, `mistralai/Mistral-7B-Instruct-v0.2` 7B, 둘 다 ungated) × instruction 3종(자유서술 / 구조화 JSON / 신뢰성-중심— 15.2에서 실제 발견한 "domain보다 reliability/format 패턴이 더 의미 있었다"는 교훈을 반영해 세 번째 variant를 별도로 설계함) 조합 총 6가지를 11개 모델 전체에 대해 돌려서 RSA를 비교함. Colab T4로 충분(4bit 양자화), probe 응답은 모델 다운로드 없이 데이터셋에서 직접 추출. 결과는 `Drive/cscr_repro/v12_backbone_sweep/sweep_results.json`에 rho 내림차순으로 저장됨.
