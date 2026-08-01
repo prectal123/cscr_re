@@ -6,8 +6,6 @@
   "OpenAssistant__oasst-sft-4-pythia-12b-epoch-3.5",
   "google__flan-t5-xxl",
   "THUDM__chatglm-6b",
-  "mosesjun0h__llama-7b-hf-baize-lora-bf16",
-  "databricks__dolly-v2-12b",
   "fnlp__moss-moon-003-sft",
-  "mosaicml__mpt-7b-instruct"
+  "mosesjun0h__llama-7b-hf-baize-lora-bf16"
 ]

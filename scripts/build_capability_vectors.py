@@ -15,6 +15,7 @@ pool model, same shape, same prompt order) + a companion
 prompt_ids.json recording exactly which prompts were used, for
 reproducibility.
 """
+import argparse
 import json
 import math
 from pathlib import Path
@@ -22,8 +23,6 @@ from pathlib import Path
 import numpy as np
 from datasets import load_dataset, concatenate_datasets
 
-POOL_PATH = "experts/pool-mix-instruct-7.json"
-OUT_DIR = Path("local_descriptors/mix-instruct-capability")
 SCORE_KEY = "bartscore"
 
 NAME_TO_HF = {
@@ -43,8 +42,14 @@ NAME_TO_HF = {
 
 
 def main():
-    pool = json.load(open(POOL_PATH))
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pool", default="experts/pool-mix-instruct-7.json")
+    ap.add_argument("--out_dir", default="local_descriptors/mix-instruct-capability")
+    args = ap.parse_args()
+
+    pool = json.load(open(args.pool))
     pool_set = set(pool)
+    out_dir = Path(args.out_dir)
     print(f"Pool ({len(pool)}): {pool}\n")
 
     raw = concatenate_datasets([
@@ -77,7 +82,7 @@ def main():
     if n == 0:
         raise RuntimeError("No prompts have all pool models scored -- check pool/NAME_TO_HF.")
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     for model in pool:
         raw_scores = np.array(
             [math.exp(per_prompt[pid][model]) for pid in prompt_ids],
@@ -85,15 +90,15 @@ def main():
         )
         norm = np.linalg.norm(raw_scores) + 1e-12
         vec = (raw_scores / norm).astype(np.float32)
-        out_path = OUT_DIR / f"{model}.npy"
+        out_path = out_dir / f"{model}.npy"
         np.save(out_path, vec)
         print(f"  {model:55s} shape={vec.shape}  "
               f"raw range=[{raw_scores.min():.4f}, {raw_scores.max():.4f}]  "
               f"saved -> {out_path}")
 
-    with open(OUT_DIR / "prompt_ids.json", "w") as f:
+    with open(out_dir / "prompt_ids.json", "w") as f:
         json.dump(prompt_ids, f)
-    print(f"\nSaved {len(pool)} capability vectors (dim={n}) + prompt_ids.json to {OUT_DIR}")
+    print(f"\nSaved {len(pool)} capability vectors (dim={n}) + prompt_ids.json to {out_dir}")
 
 
 if __name__ == "__main__":
