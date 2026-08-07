@@ -1,0 +1,156 @@
+{
+  "aime": {
+    "n_rows": 12,
+    "Ceiling_FP": 0.5928782728405567,
+    "Pseudo_Ceiling": 0.6224078979091102,
+    "Perplexity": 0.5014223643168558,
+    "Uniform": 0.5245563606478411
+  },
+  "arcc": {
+    "n_rows": 235,
+    "Ceiling_FP": 0.4266107136612126,
+    "Pseudo_Ceiling": 0.42540338075806783,
+    "Perplexity": 0.4165141613065324,
+    "Uniform": 0.41996257285199884
+  },
+  "arenahard": {
+    "n_rows": 150,
+    "Ceiling_FP": 0.30021866061770736,
+    "Pseudo_Ceiling": 0.2978622230302229,
+    "Perplexity": 0.2938252676925532,
+    "Uniform": 0.29496673187113887
+  },
+  "arenahard_coding": {
+    "n_rows": 51,
+    "Ceiling_FP": 0.3396385426441724,
+    "Pseudo_Ceiling": 0.34010454229655174,
+    "Perplexity": 0.32590634507596244,
+    "Uniform": 0.32601046599774897
+  },
+  "arenahard_creative_writing": {
+    "n_rows": 50,
+    "Ceiling_FP": 0.34297338396788757,
+    "Pseudo_Ceiling": 0.3523105874114363,
+    "Perplexity": 0.34283833802474784,
+    "Uniform": 0.349212475938992
+  },
+  "arenahard_math": {
+    "n_rows": 50,
+    "Ceiling_FP": 0.18402679129847196,
+    "Pseudo_Ceiling": 0.18064261606970589,
+    "Perplexity": 0.17912767270494062,
+    "Uniform": 0.19171154174320762
+  },
+  "bbh": {
+    "n_rows": 216,
+    "Ceiling_FP": 0.42753551607641527,
+    "Pseudo_Ceiling": 0.41732274456390783,
+    "Perplexity": 0.4286949753331454,
+    "Uniform": 0.424505845129048
+  },
+  "emorynlp": {
+    "n_rows": 140,
+    "Ceiling_FP": 0.5836982604729652,
+    "Pseudo_Ceiling": 0.5920914968882407,
+    "Perplexity": 0.5982695302275423,
+    "Uniform": 0.6007871059169857
+  },
+  "finqa": {
+    "n_rows": 230,
+    "Ceiling_FP": 0.6608929878754012,
+    "Pseudo_Ceiling": 0.6505495981613452,
+    "Perplexity": 0.6524537908532623,
+    "Uniform": 0.652894500598028
+  },
+  "gpqa": {
+    "n_rows": 40,
+    "Ceiling_FP": 0.4498617819480871,
+    "Pseudo_Ceiling": 0.45844090829517503,
+    "Perplexity": 0.4468252479841487,
+    "Uniform": 0.4180894004859474
+  },
+  "humaneval": {
+    "n_rows": 33,
+    "Ceiling_FP": 0.46867283311469254,
+    "Pseudo_Ceiling": 0.4514211099691604,
+    "Perplexity": 0.4569295632056898,
+    "Uniform": 0.4540160201151619
+  },
+  "kandk": {
+    "n_rows": 140,
+    "Ceiling_FP": 0.27742048534123587,
+    "Pseudo_Ceiling": 0.2655082777402843,
+    "Perplexity": 0.26268425014672026,
+    "Uniform": 0.27095260194618576
+  },
+  "korbench": {
+    "n_rows": 250,
+    "Ceiling_FP": 0.6539453912361554,
+    "Pseudo_Ceiling": 0.6458199659403838,
+    "Perplexity": 0.6395948301416147,
+    "Uniform": 0.6349477437746047
+  },
+  "livecodebench": {
+    "n_rows": 211,
+    "Ceiling_FP": 0.5965529610952698,
+    "Pseudo_Ceiling": 0.6064023639564453,
+    "Perplexity": 0.5832382602614647,
+    "Uniform": 0.5852326802260877
+  },
+  "livemathbench": {
+    "n_rows": 25,
+    "Ceiling_FP": 0.7043356971466531,
+    "Pseudo_Ceiling": 0.7239494596349243,
+    "Perplexity": 0.6441113878555169,
+    "Uniform": 0.6411674240672651
+  },
+  "math500": {
+    "n_rows": 100,
+    "Ceiling_FP": 0.5941172691751526,
+    "Pseudo_Ceiling": 0.6053454056712055,
+    "Perplexity": 0.5445305641312885,
+    "Uniform": 0.5406216963295333
+  },
+  "mathbench": {
+    "n_rows": 30,
+    "Ceiling_FP": 0.33790171692170223,
+    "Pseudo_Ceiling": 0.31410440643701204,
+    "Perplexity": 0.3664132088033035,
+    "Uniform": 0.3515440966196255
+  },
+  "mbpp": {
+    "n_rows": 195,
+    "Ceiling_FP": 0.5782301203575931,
+    "Pseudo_Ceiling": 0.5771449115783522,
+    "Perplexity": 0.5859555204157971,
+    "Uniform": 0.5792756601376456
+  },
+  "medqa": {
+    "n_rows": 255,
+    "Ceiling_FP": 0.4934073491525172,
+    "Pseudo_Ceiling": 0.48740558660632793,
+    "Perplexity": 0.5146571653017612,
+    "Uniform": 0.5141266687231977
+  },
+  "meld": {
+    "n_rows": 247,
+    "Ceiling_FP": 0.6263709436255789,
+    "Pseudo_Ceiling": 0.6230548847868244,
+    "Perplexity": 0.6322384396110976,
+    "Uniform": 0.6366782159672943
+  },
+  "mmlupro": {
+    "n_rows": 201,
+    "Ceiling_FP": 0.5769903723245495,
+    "Pseudo_Ceiling": 0.56741526854688,
+    "Perplexity": 0.5827055949396363,
+    "Uniform": 0.5785585640932921
+  },
+  "winogrande": {
+    "n_rows": 254,
+    "Ceiling_FP": 0.4454858600657697,
+    "Pseudo_Ceiling": 0.4332767100769802,
+    "Perplexity": 0.458552896638183,
+    "Uniform": 0.4645730185433899
+  }
+}

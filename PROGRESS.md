@@ -7,7 +7,7 @@
 
 ## 0. TL;DR — 2026-08-02 세션 종료 시점, 다음은 여기서부터 (최신)
 
-**가장 최근 세션 요약은 17번 섹션(LOO unseen-model 실험) 참고, EmbedLLM pool 규격화/v1.2 프로토타입은 18번 섹션 참고(별도 세션에서 병행 진행됨).** 핵심: (1) RouterBench(11개 모델)가 너무 작아서 collapse가 생기는지 확인하려고 **LLMRouterBench**(33개 모델, 22개 태스크 카테고리 확보 가능)로 pool을 3배 확장 — parametric LOO는 여전히 유의미한 개선 없음, pool 크기 자체는 원인이 아님을 확인. (2) probe 선정이 flagship/lightweight tier gap에 지배당하는 버그 발견 → **flagship 13개를 아예 제외하고 lightweight 20개 모델로 피벗**(22개 카테고리 전부 확보). (3) PCA로 Ceiling FP를 분해해서 **핵심 메커니즘 규명**: 신호의 28.5%가 "이 모델이 전반적으로 얼마나 센가"라는 단일 coarse 축이고, 이걸 제거하면 성능이 완전히 붕괴함 — Ceiling이 세밀한 도메인 매칭이 아니라 이 coarse 축 덕분에 이겼다는 뜻. (4) **카테고리 단위로 집계한(개별 probe 아닌) Ceiling FP(Ceiling V2)**가 uniform/Perplexity/기존 Ceiling(V1) 셋 다 유의미하게 이기는 첫 깨끗한 승리 기록. (5) lightweight-20 pool의 **parametric LOO에서도 Ceiling V1이 Perplexity를 유의미하게 이김**(3-시드 평균 delta+0.109, p=0.0024로 확정) — 33개 풀에서는 안 됐던 게, tier gap을 없애니 실제 학습 단계에서도 처음으로 재현됨. (6) 33개 풀에서 Ceiling FP의 지배축이 사실상 tier(플래그십/경량) 분리축임을 직접 확인 → **"Dual-Tier 라우팅"(coarse 축=tier 게이트, 나머지=tier 내부 도메인 매칭) 후속 연구 아이디어 도출, 검증에는 EmbedLLM 규모 필요.** **다음 할 일: Ceiling V2 parametric LOO 완료 확인, EmbedLLM 자원 확보(18번 섹션 이미 진행된 pool 규격화 작업 활용), Dual-Tier 설계 착수.**
+**가장 최근 세션 요약은 17번 섹션(LOO unseen-model 실험) 참고, EmbedLLM pool 규격화/v1.2 프로토타입은 18번 섹션 참고(별도 세션에서 병행 진행됨).** 핵심: (1) RouterBench(11개 모델)가 너무 작아서 collapse가 생기는지 확인하려고 **LLMRouterBench**(33개 모델, 22개 태스크 카테고리 확보 가능)로 pool을 3배 확장 — parametric LOO는 여전히 유의미한 개선 없음, pool 크기 자체는 원인이 아님을 확인. (2) probe 선정이 flagship/lightweight tier gap에 지배당하는 버그 발견 → **flagship 13개를 아예 제외하고 lightweight 20개 모델로 피벗**(22개 카테고리 전부 확보). (3) PCA로 Ceiling FP를 분해해서 **핵심 메커니즘 규명**: 신호의 28.5%가 "이 모델이 전반적으로 얼마나 센가"라는 단일 coarse 축이고, 이걸 제거하면 성능이 완전히 붕괴함 — Ceiling이 세밀한 도메인 매칭이 아니라 이 coarse 축 덕분에 이겼다는 뜻. (4) **카테고리 단위로 집계한(개별 probe 아닌) Ceiling FP(Ceiling V2)**가 uniform/Perplexity/기존 Ceiling(V1) 셋 다 유의미하게 이기는 첫 깨끗한 승리 기록. (5) lightweight-20 pool의 **parametric LOO에서도 Ceiling V1이 Perplexity를 유의미하게 이김**(3-시드 평균 delta+0.109, p=0.0024로 확정) — 33개 풀에서는 안 됐던 게, tier gap을 없애니 실제 학습 단계에서도 처음으로 재현됨. (6) 33개 풀에서 Ceiling FP의 지배축이 사실상 tier(플래그십/경량) 분리축임을 직접 확인 → **"Dual-Tier 라우팅"(coarse 축=tier 게이트, 나머지=tier 내부 도메인 매칭) 후속 연구 아이디어 도출, 검증에는 EmbedLLM 규모 필요.** (7) V1/V2 둘 다 multi-seed(3개) 확정 완료 — V2가 방향상 V1보다 약간 우세하나 유의수준 미달(p=0.083), 둘 다 Perplexity는 확실히 이김. Random FP(순수 노이즈) negative control로 파이프라인 자체엔 편향 없음 확인. (8) 특정 6개 모델("reasoning-RL 클러스터")이 V1/V2/Perplexity 전부에서 AUC가 나쁜 이유를 추적 → **probe 선정 편향 발견**: 고분산 probe 528개만 보면 이 그룹 간 격차가 전체 모집단(19%p)의 2배 이상(41%p)으로 과장돼 있었음 — mean-centering이 못 잡는 새로운 종류의 confound. **다음 할 일: 발표 자료 작성 시작(17.14의 future-work 결론 포함), 여유 되면 EmbedLLM 자원 확보/Dual-Tier 설계.**
 
 ---
 
@@ -335,7 +335,7 @@ bash scripts/setup_and_run_gpu_server.sh
 `scripts/loo_unseen_recovery.py`로 실험하다가, loss가 baseline(랜덤 초기화) 수준에서 안 내려가는 현상 발견. 여러 단계로 원인 진단:
 
 1. **MixInstructOracle 기본 `MARGIN=0.1`이 degenerate**: 라벨의 82~90%가 all-positive. `TRAIN_MARGIN=0.01`로 재보정(스코어 갭 median=0.0075 기준으로 선택) → avg positive/row 9.04→2.92, all-positive 82%→5.6%.
-2. **`cost_info_nce` 손실 함수 자체는 논문 원본(`scripts/train_query_encoder.py`, upstream과 diff 없음 확인)과 완전히 동일** — 우리 코드 문제 아님.
+2. **`cost_info_nce` 손실 함수 자체는 논문 원본(`scripts/train_query_encoder.py`, upstream과 diff 없음 확인)과 완전히 동일** — 우리 코드 문제 아님. **[2026-08-02 정정]**: 이 claim은 부정확했음 — 논문 원본(Eq.8, byte-identical to upstream)은 사실 밴드 기반의 `cost_spectrum_info_nce`이고, `cost_info_nce`(밴드 없음 + 분자에 비용 가중 positive-averaging 추가)는 이후 세션에서 만들어진 **별개의 단순화 변형**임이 뒤늦게 확인됨. 자세한 경위와 이 변형을 채택한 근거는 17.19절 참고.
 3. **원 논문 `QueryEncoder.encode()`가 CLS 토큰 pooling을 씀** — 근데 `all-MiniLM-L6-v2`는 Mean Pooling으로 학습된 모델. CLS pooling 시 baseline anisotropy(무관한 프롬프트 200개 pairwise cosine sim) 0.62, Mean pooling으로 고치면 0.05로 10배 이상 개선. **논문 레퍼런스 코드 자체의 버그로 추정.** `loo_unseen_recovery.py`에 `mean_pool()` 헬퍼 추가해서 전부 교체.
 4. **Mean pooling 적용해도 collapse는 부분적으로만 완화됨** (쏠림 68~75%→50.5%, 여전히 심함). Ceiling FP를 collinearity 고쳐서 다시 넣어도(아래 15.2) 거의 같은 3개 모델(oasst-pythia/chatglm/alpaca)로 collapse — **descriptor 기하구조를 바꿔도 collapse 대상이 거의 안 바뀜** → 라벨/비용 구조가 만드는 attractor로 추정.
 5. **Positive control 테스트**(합성 E, 완전히 클린한 1:1 랜덤 라벨, cost=0)로도 collapse 재현 — loss/라벨 문제가 아니라 **MiniLM 인코더+헤드 조합이 프롬프트 조건부 학습보다 collapse를 더 쉬운 해로 찾는다**는 것 시사.
@@ -691,13 +691,231 @@ RouterBench(16.11)에서 봤던 시드 요동(claude-v2, WizardLM이 시드마�
 
 **문제점**: 이 설계를 제대로 검증하려면 각 tier 내부에도 충분한 모델 수가 있어야 하는데(현재 플래그십 13개, 경량 20개 — tier 내부 fine routing을 하기엔 특히 플래그십 쪽이 너무 얇음), 지금 33개 모델 풀로는 어렵다. **EmbedLLM**(115개 모델, CSCR 원 논문의 세 트랙 중 하나, 3번 섹션에서 이미 후보로 언급됐었음)이 이 검증에 필요한 실제 규모. **교수님께 EmbedLLM 규모를 다룰 수 있는 GPU/컴퓨팅 환경("playground")을 요청할 필요가 있음** — 로컬(4GB VRAM)이나 Colab 무료 티어로는 어려운 스케일.
 
-### 다음 할 일 (2026-08-02 세션 종료 시점, 최신)
-1. **✅ 완료**: lightweight-20 parametric LOO multi-seed 재검증 — 17.11 참고, 결과 확정됨.
-2. **Category-rate FP(Ceiling V2)로 parametric LOO 재검증** — 진행 중(`full_loo_lite20_categoryrate.py`, seed=0). Perplexity는 이미 확인된 3-시드 안정성(17.11)을 재사용, Ceiling V2만 새로 학습. 17.8의 kNN 승리가 parametric 단계에서도 재현되는지 확인.
-3. **Category-rate FP로 PC1 분해** — 노이즈가 줄어든 상태에서도 coarse 축이 여전히 지배적인지, 아니면 residual이 이번엔 쓸모 있는지 확인.
-4. **⭐ Dual-Tier 라우팅 설계 + EmbedLLM 규모 확보** — 17.11 참고. (a) 교수님께 EmbedLLM(115개 모델) 규모를 감당할 GPU 자원 요청, (b) 확보되면 tier 게이트(coarse) + tier 내부 도메인 매칭(fine) 2단계 설계를 실제로 구현/검증.
-5. Set A vs Set B로 교정한 Mantel 테스트(16.12/16.16 이월) — 여전히 미실행.
-6. **발표 준비**: 이 챕터 전체(11→33 pool 확장은 실패, tier 동질성으로 전환해서 성공, PC1으로 메커니즘 규명, multi-seed로 확정)를 "본인이 제안한 가설 → kNN 파일럿 검증 → parametric 확장 시도 → 실패 진단 → 원인 규명 및 재현 → 후속 연구(Dual-Tier) 제안" 서사로 정리. 이 프로젝트가 "CSCR 논문 재현"이 아니라 "본인의 독자적 연구 주제"라는 점을 명확히 할 것.
+### 17.12 Ceiling V2(category-rate) parametric LOO 결과 — V1과 통계적으로 동일 (2026-08-02)
+
+`full_loo_lite20_categoryrate.py`(seed=0) 완료. V1/V2/Perplexity 3자 비교(같은 20개 모델, 같은 seed=0):
+
+| 비교 | delta | p | 승 |
+|---|---|---|---|
+| V2 vs V1 | -0.0011 | 0.876 (유의 안 함) | 10/20 |
+| V2 vs Perplexity | +0.1086 | 0.0030 | 14/20 |
+
+kNN에서는 V2가 V1을 근소하게 유의미하게 이겼지만(17.8, delta+0.0042, p=0.0346), **parametric 단계에서는 그 우위가 재현 안 되고 사실상 동률**. 둘 다 Perplexity는 여전히 확실하게 이김(V1 delta+0.1097, V2 delta+0.1086 — 거의 동일한 마진). **발표 프레이밍(사용자 확정)**: V2(카테고리 집계)를 이상적 capability oracle에 더 가까운 주 방법론으로 세우고, V1(개별 probe-response)은 대안으로 함께 검증 — kNN에서는 V2가 근소 우세, LOO에서는 거의 동일이라는 점을 "방법론 선택에 결과가 민감하지 않다(robustness)"는 근거로 제시.
+
+### 17.13 Ceiling V2 multi-seed 재검증 완료 + Random FP negative control (2026-08-02, 다음날 세션)
+
+**V2 multi-seed**(seed=1,2 추가): V1과 V2를 직접 페어드 비교하면 seed=0에서는 완전 동률(delta-0.0011, p=0.876)이었지만, 3-시드 전체로 보면 **V2가 방향은 일관되게 앞섬**:
+
+| seed | V2 mean AUC | V1 mean AUC | V2-V1 delta | p | V2 vs Perp delta | p |
+|---|---|---|---|---|---|---|
+| 0 | 0.5845 | 0.5856 | -0.0011 | 0.876 | +0.1086 | 0.0030 |
+| 1 | 0.5973 | 0.5796 | +0.0177 | 0.0354 | +0.1255 | 0.0011 |
+| 2 | 0.5958 | 0.5734 | +0.0223 | 0.0845 | +0.1324 | 0.0009 |
+| **3-시드 평균** | | | **+0.0130** | **0.0829** | **+0.1222** | **0.0013** |
+
+V2 vs V1 직접비교는 3-시드 평균 p=0.083으로 **관례적 유의수준(0.05) 미달 — "V2가 확실히 낫다"고 단정하면 안 됨**, 다만 seed=0만 봤을 때의 "완전 동률" 결론보다는 V2가 약간 우세한 쪽으로 방향이 잡힘. V2 vs Perplexity는 3-시드 전부 확실히 유의(p<0.005), 마진(+0.122)이 V1의 마진(+0.109)보다 약간 큼.
+
+**Random FP negative control** (`build_random_fp_lite20.py` + `full_loo_lite20_random.py`, 22차원 순수 가우시안 노이즈, seed=0): mean AUC=**0.5139**, 0.5와 통계적으로 구분 안 됨(one-sample t-test p=0.349), 유의미하게 위/아래로 갈린 fold 수도 7/7로 대칭. **파이프라인 자체가 무의미한 descriptor로도 좋은 결과를 만들어내는 편향은 없다는 것을 확인** — Ceiling의 유의미한 승리와 Perplexity의 유의미한 역전이 전부 descriptor 내 실제 정보 때문이라는 근거가 하나 더 확보됨.
+
+### 17.14 왜 특정 6개 모델은 세 방법(V1/V2/Perplexity) 전부에서 AUC가 나쁜가 — probe 선정 편향 발견 (2026-08-02)
+
+세 테이블(V1/V2/Random 각각 vs Perplexity) 모두에서 **같은 6개 모델**(Qwen3-8B, DeepSeek-R1-0528-Qwen3-8B, GLM-Z1-9B-0414, NVIDIA-Nemotron-Nano-9B-v2, Intern-S1-mini, MiniCPM4.1-8B — 17.6의 PC1 "reasoning-RL 클러스터"와 정확히 일치)이 V1/V2/Perplexity 전부에서 AUC 0.5 미만으로 나오는 걸 발견 → outlier가 아니라 방법론 무관하게 일관된 현상.
+
+**가설 검증 과정** (둘 다 기각됨, 아래 것만 지지됨):
+1. ~~"이 6개가 서로 너무 비슷해서 구분이 안 된다"~~ — 기각. 실제 쿼리별 정답 상관관계(0.53~0.61)가 오히려 FP 코사인 유사도(0.29~0.52)보다 높음.
+2. ~~"이 그룹이 원래 약한 모델들이다"~~ — 기각. 전체 Set A 기준 이 그룹 정답률(61.9%)이 비교군("plain instruct" 7개, 43.0%)보다 오히려 높음. 어려운 문제를 이 그룹만 유일하게 맞추는 비율도 15.9% vs 3.9%로 압도적.
+3. **✅ 지지됨 — probe 선정 편향**: Ceiling FP를 만드는 528개 고분산 probe만 따로 보면, 이 두 그룹의 격차가 **전체 모집단(19%p)보다 2배 이상 과장**(41%p: reasoning-RL 70.1% vs plain-instruct 29.0%)됨. "고분산 probe를 뽑는다"는 기준 자체가 특정 서브그룹 간 격차를 실제보다 과장해서 반영하는 부작용이 있었음.
+
+**메커니즘(가설, 완전 검증은 아님)**: descriptor(타겟)는 이 과장된 528개 probe로 만들어지는데, 실제 MLP 학습은 Set A 전체(~12,000개, 모집단 비율)로 이뤄짐 → 인코더가 "일반 쿼리 → 과장된 타겟 관계"를 학습 → Set B(모집단 대표 분포) 평가에서 이 관계가 깨짐. 다만 이게 단순 calibration 오차(기대치보다 낮음)를 넘어 AUC 0.5 미만(완전 역전)까지 가는 정확한 경로는 아직 다 못 밝힘 — 발표에서 깊게 안 파고들어도 되는 수준.
+
+**⭐ Future work 결론 (사용자 확정, 발표에 포함)**: "Capability를 평가해서 FP로 변환하는 과정에서 사용된 probe prompt의 종류·양상, 그리고 그게 model pool 생태계 내에서 어떤 위치를 갖는지가 결과에 중대한 영향을 미친다. 따라서 향후에는 (a) coarse하지 않고 fine-grained하면서도 (b) 특정 서브그룹에 편향되지 않는 universal한 채점/probe 선정 기법이 중요한 연구 방향이다." — mean-centering이 잡아내는 "공유 난이도" 편향과는 별개로, "probe 선정 자체의 서브그룹 편향"이라는 새로운 종류의 confound를 이번 세션에서 추가로 발견한 셈.
+
+### 17.15 예상 Q&A 대비 — "결국 유리한 probe만 고른 거 아니냐"는 질문에 대한 방어 논리
+
+17.14의 probe 선정 편향 발견을 발표하면, "그럼 너희가 한 것도 결국 골라서 좋은 결과 낸 거 아니냐(cherry-picking)"는 질문이 나올 수 있음. 대비한 답변 정리:
+
+1. **선정 기준은 결과-무관·사전 확정 알고리즘이었다**: 어떤 FP가 이기는지 보고 probe를 고른 게 아니라, "분산이 가장 높은 probe"라는 사전에 정해둔 알고리즘 기준을 결과와 무관하게 그대로 적용함. 이게 진짜 cherry-picking(원하는 결론이 나올 때까지 반복 선택)과 다른 점.
+   - **다만 이렇게만 말하면 안 됨**: "그 기준 자체에서 방금 편향을 발견하지 않았냐"고 반박당할 수 있음. 그러니 **"우리 방법엔 편향이 없다"가 아니라 "선정 기준은 원칙적이었지만, 사후에 그 기준이 의도치 않게 특정 subgroup 격차를 왜곡시킨다는 걸 발견했고 이를 투명하게 보고한다"**는 프레이밍이 더 방어력 있음(편향을 스스로 찾아내 정직하게 보고한 것 자체가 신뢰도를 높이는 포인트).
+2. **Ceiling V2(category-rate)는 애초에 선정 단계가 없다**: probe를 고르는 절차 자체가 없이 Set A 전체 평균을 쓰기 때문에, "특정 probe를 골랐다"는 비판이 원천적으로 성립 안 함. V1에 대한 비판을 V2가 방어해주는 구도.
+3. **"섬세하게 조정하면 나머지도 chance를 넘길 것"은 검증 안 된 가설**: 6개 모델(Intern-S1-mini, GLM-Z1-9B-0414, Qwen3-8B, NVIDIA-Nemotron-Nano-9B-v2, MiniCPM4.1-8B, DeepSeek-R1-0528-Qwen3-8B) 얘기임(4개 아님). 메커니즘상 그럴 것으로 예상되지만 **아직 실제로 교정된 probe 선정으로 재실험해본 적은 없음** — 발표에서는 확정된 결과처럼 말하지 말고 "다음 검증 과제"로 명시할 것.
+
+### ⚠️ 17.16 네이밍 변경 공지 (2026-08-02) — "Ceiling V1/V2" → "Pseudo Ceiling / Ceiling FP"
+
+**사용자 확정, 이 시점 이후 새로 작성되는 내용부터 적용**:
+- **"Ceiling V2"(category-rate, 22차원, Set A 카테고리 전체 평균) → "Ceiling FP"**로 개명. 앞으로는 이게 주(canonical) 방법론 이름.
+- **"Ceiling V1"(528-probe, 개별 고분산 probe 528개) → "Pseudo Ceiling"**으로 개명. probe 선정을 거친 근사치라는 의미를 이름에 담음(17.14/17.15에서 다룬 probe 선정 편향 문제와도 이름이 자연스럽게 연결됨).
+
+**주의**: 17.1~17.15 등 **이 공지 이전에 작성된 본문은 소급 수정하지 않음**(그 시점 작성 당시의 "V1/V2" 표기 그대로 유지 — 세션 기록의 시간순 정합성 보존 목적). 과거 섹션을 읽을 땐 "V1=Pseudo Ceiling, V2=Ceiling FP"로 치환해서 이해할 것. **이 공지 이후 작성되는 섹션(발표자료 포함)부터는 새 이름(Pseudo Ceiling / Ceiling FP)을 사용.** 발표 자료·이미지(테이블/막대그래프)도 새 이름으로 재생성함 — `local_descriptors/llmrouterbench_lite20/table_v1_vs_perp.png` 등 기존 파일명은 유지하되(스크립트 재실행 편의상), 이미지 안의 라벨/제목 텍스트는 새 이름으로 교체.
+
+### 17.17 3-벤치마크 비교표 완성 — MixInstruct/RouterBench에 Pseudo Ceiling 신규 실험 추가 (2026-08-02)
+
+발표용으로 MixInstruct/RouterBench/LLMRouterBench 3개 벤치마크를 나란히 비교하는 표를 만들다가, 기존 MixInstruct·RouterBench의 "Ceiling"이 이미 **카테고리(클러스터) 평균 기반**(=새 이름으로 "Ceiling FP")이었다는 걸 재확인 — 이 두 벤치마크에 진짜로 없던 건 **개별 고분산 probe 선정 기반**("Pseudo Ceiling")뿐이었음. 새로 만들어서 채움:
+
+- **RouterBench Pseudo Ceiling**(`scripts/routerbench_pseudo_ceiling.py`): 86개 eval_name 카테고리별로 고분산 probe 6개씩 층화추출(512개 총), mean-centered, L2-normalized. 결과: **delta+0.1012, p=0.0200, 9/11 fold 개선** — 기존 Ceiling FP(+0.0982, p=0.0205)와 거의 동급.
+- **MixInstruct Pseudo Ceiling**(`scripts/mixinstruct_pseudo_ceiling.py`): 진짜 카테고리가 없어서(k-means pseudo-cluster만 있음) 층화추출 없이 Set A 84,000개 프롬프트 전체에서 고분산 512개를 그냥 뽑음(방법론적 단순화, 명시적으로 기록). 결과: **delta-0.0575, p=0.0132, 2/11 fold만 개선** — 유의미하게 uniform보다 나쁨. 기존 MixInstruct 결과들(Ceiling FP -0.0070, Perplexity -0.0076)과 같은 패턴 재확인.
+
+**최종 3-벤치마크 비교표**(`local_descriptors/llmrouterbench_lite20/three_benchmark_comparison_table.png`, V1.2는 발표 스코프에서 제외):
+
+| Benchmark | Pseudo Ceiling | Ceiling FP | Perplexity |
+|---|---|---|---|
+| MixInstruct | -0.0575* | -0.0070 | -0.0076* |
+| RouterBench | **+0.1012*** | +0.0982* | +0.0111 |
+| LLMRouterBench | +0.0138* | **+0.0180*** | +0.0065 |
+
+**MixInstruct에서 전체적으로 성능이 안 좋은 이유(정리)**: uniform baseline 자체가 rho=0.73으로 극단적으로 강함 — BartScore가 "이 프롬프트가 원래 쉬운가 어려운가"라는 전 모델 공유 성분에 지배당해서, 아무 가중치 없이 나머지 모델 평균만 내도 이미 그 공유 신호를 다 잡아냄. 게다가 MixInstruct는 거의 균질한 instruction-following 프롬프트라 태스크 다양성이 거의 없어서, 모델별 도메인 차별화가 드러날 여지 자체가 부족함. → **"태스크 다양성이 있어야 capability-alignment FP가 의미를 가질 여지가 생긴다"**는 이 세션 전체의 핵심 메시지와 정확히 일관됨(MixInstruct < RouterBench < LLMRouterBench 순으로 다양성도, 결과도 좋아지는 패턴).
+
+### 17.18 멘토 피드백 대응 — Perplexity 채점 모델(GPT2) 크기를 키워도 결과 그대로, kNN·parametric LOO 둘 다 multi-seed 확정 (2026-08-02, 다음날 세션)
+
+**멘토 피드백**: Perplexity FP가 GPT2(1.24억 파라미터, 2019년 구형 모델)로 채점되는 반면 Ceiling FP는 사실상 벤치마크 정답(완벽한 채점자) 기반이라 공정성(fairness) 문제로 비칠 수 있음 — 채점 모델을 더 무겁게 바꿔도 결과가 그대로인지 확인 필요. (V1.2처럼 새 방법론을 도입할 땐 LLM judge를 진짜 70B급이나 유료 API로 쓰는 것도 고려하라는 의견도 있었음 — V1.2가 발표 스코프에서 빠져서 실행은 안 하고 향후 과제로만 기록.)
+
+**실험**: `build_perplexity_fp_lite20_heavier.py`로 같은 528개 probe를 gpt2(1.24억) 대신 **gpt2-large(7.74억, 6배)**로 cross-entropy 재계산(통제 비교, 나머지 전부 동일).
+
+**kNN 테스트** (`local_descriptors/llmrouterbench_lite20/perplexity_gpt2large/`): GPT2-large Perp vs 원본 GPT2 Perp, delta=-0.0008, p=0.1828 — 사실상 동일. 단, 이 kNN 테스트 자체에서는 원래도 Ceiling FP vs Perplexity 직접비교가 유의하지 않았음(17.5, p=0.1468)에 주의 — 그래서 좀 더 결정적인 검증을 위해 parametric LOO(Perplexity가 Ceiling FP에 확실히 진 곳, 17.9/17.11)에서도 재확인.
+
+**Parametric LOO 3-시드 확정** (`full_loo_lite20_gpt2large.py`, `full_loo_gpt2large_results.json`):
+
+| seed | GPT2-large Perp mean AUC | 원본 GPT2 Perp mean AUC | Ceiling FP mean AUC |
+|---|---|---|---|
+| 0 | 0.4811 | 0.4759 | 0.5856 |
+| 1 | 0.4725 | 0.4718 | 0.5796 |
+| 2 | 0.4687 | 0.4634 | 0.5734 |
+| **3-시드 평균** | **0.4741** | **0.4704** | **0.579** |
+
+GPT2-large vs 원본 GPT2 직접비교(3시드×20모델 풀링, n=60): **delta+0.0037, p=0.3451 — 완전히 무의미한 차이.**
+
+**결론**: 채점 모델을 6배(1.24억→7.74억) 키워도 kNN·parametric LOO 둘 다에서 결과가 사실상 그대로였고, Ceiling FP와의 격차(0.47대 vs 0.58대)는 전혀 안 좁혀짐(multi-seed로 확정). "채점 모델이 작아서 Perplexity가 불리했다"는 fairness 가설은 **기각**됨 — Perplexity(surprisal/유창성) 신호 자체가 Ceiling FP(실제 정답 기반) 신호만큼 capability를 못 담는다는 게 더 근본적인 방법론적 한계라는 근거가 강화됨. 멘토 피드백에 대한 명확하고 확정된 답변으로 발표에 포함할 것.
+
+### 17.19 Loss 함수 정정 + "Altered Loss" 채택 근거 정리 — 이 세션 최종 발표 프레이밍 (2026-08-02)
+
+**배경 정정**: 15.1절의 "`cost_info_nce`가 논문 원본과 동일하다"는 기존 claim은 부정확했음. 실제로는:
+- **`cost_spectrum_info_nce`**(밴드 기반, `n_bands`개 비용 구간마다 별도 temperature $\tau_b = \tau_{min}+\alpha\bar{c}_b$ 사용) = 논문 Eq.8 원본, `scripts/train_query_encoder.py`에서 byte-identical to upstream으로 확인됨.
+- **`cost_info_nce`**(밴드 없음, 단일 temperature + 분자에 비용 가중 positive-averaging $w^{pos}_m \propto (1-c_m)$ 추가) = 이 프로젝트가 LOO 실험(15번 섹션)을 위해 만든 **별개의 단순화 변형**. 분자의 비용 가중 평균 항은 논문 코드 어디에도 없음 — 정확한 외부 출처는 못 찾음.
+
+**"Altered Loss"로 프레이밍하는 근거 3가지** (발표 메인 서사에 포함, 사용자 확정):
+
+1. **방법론적 근거 — 밴드 구조가 이 pool 규모에서 수학적으로 붕괴함**: $\tau_b$는 band 소속 모델들의 평균 비용인데, `n_bands=5`·모델 20개면 band당 3~4개뿐 → $\bar{c}_b$가 사실상 그 소수 멤버 개개인의 비용과 거의 같아짐. 극단(`n_bands`=모델 수)에서는 $\tau_b$가 문자 그대로 "모델별 개별 temperature"가 됨 — 즉 논문이 의도한 "굵직한 비용 계층"이라는 구조가, 이 규모(11~33개 모델)에서는 이미 그 퇴화 극단에 가까워져 있음. **밴드 없는 단일 temperature 버전이 오히려 이 규모에 더 적합한 선택.**
+2. **실증적 근거 — 어느 loss를 쓰든 핵심 발견(collapse)은 동일함**: collapse는 애초에 **논문 원본 loss로 먼저 발견**됐음(13번 섹션, 2026-07-25). 이후 RouterBench에서 `cost_info_nce`→`cost_spectrum_info_nce`로 직접 바꿔서도 재검증(16번 섹션) — collapse 동일하게(오히려 한 fold는 더 심하게, 100% 단일모델 쏠림) 재현됨. 완전 대칭 합성 pool에서는 `cost_info_nce`로 98%(chance 20%) 정상 작동 확인 — **loss 변형이 문제를 만든 게 아니라, 실제 pool의 비대칭성(일부 모델이 전반적으로 강함)이 원인**(MoE 문헌의 Expert Collapse, Shazeer et al. 2017과 일치).
+3. **직접 재현 검증 — 논문 원본 loss로도 핵심 결과가 (마진은 줄어도) 유지됨, multi-seed 확정**: `full_loo_lite20_paperloss.py`(별도 디렉토리 `local_descriptors/llmrouterbench_lite20_paperloss/`, `n_bands=5`)로 lightweight-20 pool Ceiling vs Perplexity를 seed 0/1/2 세 번 재실행. **⚠️ 정정(2026-08-03): 이 스크립트는 `loo.CEILING_DIR`(= `local_descriptors/llmrouterbench_lite20/ceiling/`, 528차원)을 그대로 재사용함 — 즉 여기서 재현된 건 Ceiling FP(V2, category-rate, `ceiling_categoryrate/`)가 아니라 원래 17.9~17.11에서 먼저 유의미했던 headline 결과인 Pseudo Ceiling(V1, 528-probe)임. 아래 표의 "Ceiling"은 전부 Pseudo Ceiling을 가리킴.**
+
+| seed | Perplexity mean AUC | Ceiling mean AUC | delta | p(seed) |
+|---|---|---|---|---|
+| 0 | 0.5189 | 0.5686 | +0.0498 | 0.0304 |
+| 1 | 0.5397 | 0.5629 | +0.0232 | 0.2466 |
+| 2 | 0.5193 | 0.5674 | +0.0481 | 0.0073 |
+| **3-시드 pooled (n=60)** | **0.5260** | **0.5663** | **+0.0403** | **0.0005** |
+
+| | 3-시드 pooled Ceiling AUC | 3-시드 pooled Perplexity AUC | delta | p |
+|---|---|---|---|---|
+| `cost_info_nce`(단순화, 주 결과, 3-시드 pooled, n=60) | 0.5796 | 0.4704 | +0.1092 | 1.05e-7 |
+| `cost_spectrum_info_nce`(논문 원본, n_bands=5, 3-시드 pooled, n=60) | 0.5663 | 0.5260 | +0.0403 | 0.0005 |
+
+**⚠️ 정정(2026-08-03)**: 이 표의 `cost_info_nce` 행 수치는 원래 0.579/+0.1222/p=0.0013으로 잘못 기록되어 있었음 — `full_loo_results.json`(seed0) + `full_loo_multiseed_results.json`(seed1,2)에서 직접 재계산한 정확한 값(0.5796/+0.1092/p=1.05e-7, sign test 42/60)으로 정정.
+
+**반전 없음 — seed=1 단독으로는 유의하지 않았지만(p=0.2466), 3개 시드를 pooling하면 논문 원본 loss로도 유의미(p=0.0005)하게 Ceiling(Pseudo Ceiling) 승리.** 효과 크기는 단순화 loss의 대략 1/3 수준(+0.0403 vs +0.1092, 주로 Perplexity 평균이 0.47대→0.53대로 오른 영향, 특히 17.6/17.14의 "reasoning-RL 클러스터" 역전이 완화됨)인데, 이건 정확히 1번 근거("밴드가 이 규모에서 신호를 흐린다")와 일관됨 — 격차를 없애는 게 아니라 흐리는 정도. **"loss를 단순화한 이유가 결과를 유리하게 만들려던 것 아니냐"는 의심에 대한 직접 답: 논문 원본 loss로도 핵심 결론은 (세 시드 모두 필요하긴 하지만) 유의하게 재현된다.**
+
+**최종 발표 프레이밍(사용자 확정)**: "이 프로젝트는 collapse 현상과 좁은 model pool 문제를 극복하기 위해 논문의 cost-aware contrastive loss를 의도적으로 변형(altered)해서 실험을 진행했다 — 밴드 구조 없이 단일 temperature로 단순화. 이 선택은 (a) 밴드 구조가 이 규모 pool에서 수학적으로 개별-모델 temperature에 가깝게 퇴화한다는 것, (b) 어느 버전을 쓰든 collapse라는 핵심 현상은 동일하게 재현된다는 통제 실험, (c) 논문 원본 loss로 핵심 발견(Ceiling > Perplexity, 여기서는 Pseudo Ceiling 기준)을 직접 재검증해 마진은 줄어도 방향은 유지됨을 확인한 것, 세 가지로 뒷받침된다. 논문 원본 loss 결과는 부차적 재현 검증(secondary robustness check)으로 별도 제시."
+
+### 17.20 Collapse degree 정량 비교 + 메커니즘 + "Collapse가 사실 정답 Oracle 아니냐" Q&A 검증 (2026-08-03)
+
+발표에서 가장 두려운 두 질문에 대한 사전 방어 논리를 정리함: **(1) "논문 원본 loss로 바꿨더니 결과가 안 좋게 나오니까, 결과 좋게 나온 단순화 loss로 그냥 밀어붙인 거 아니냐"**, **(2) "지금 관찰되는 collapse가 사실 정답 오라클을 정확히 반영한 건강한 라우팅 아니냐."** 17.19가 (1)에 대한 답이고, 아래는 (1)의 정량적 근거 보강과 (2)에 대한 실증 검증.
+
+**Collapse 정도(top3_share, 200개 고정 probe의 nearest-FP-neighbor 라우팅 배정 중 top3 모델이 차지하는 비율, chance=0.15) 정량 비교**:
+
+| Loss 변형 | FP | top3_share 평균 | n |
+|---|---|---|---|
+| `cost_info_nce`(단순화, seed=0) | Ceiling(Pseudo Ceiling) | 0.3183 (std 0.0484) | 20 |
+| `cost_info_nce`(단순화, seed=0) | Perplexity | 0.3445 (std 0.0368) | 20 |
+| `cost_spectrum_info_nce`(논문 원본, 3-시드 pooled) | Ceiling(Pseudo Ceiling) | 0.3911 (std 0.0928) | 60 |
+| `cost_spectrum_info_nce`(논문 원본, 3-시드 pooled) | Perplexity | 0.4302 (std 0.0716) | 60 |
+
+**(위 표는 모두 Pseudo Ceiling(V1, 528-probe) 기준 — Ceiling FP(V2, category-rate)는 이 ablation을 아직 안 돌려봤음, 미검증.)**
+
+Welch t-test: Ceiling(Pseudo Ceiling)에서 논문 원본 loss가 단순화 loss보다 collapse가 유의미하게 더 심함(diff +0.0728, **p=0.000038**). Perplexity에서도 동일(diff +0.0857, **p<0.000001**). → **단순화 loss를 채택한 근거가 "결과가 좋아서"가 아니라 "collapse가 덜해서"라는 걸 결과와 독립적인 지표(top3_share)로 재확인.** 이 지표는 Ceiling vs Perplexity 비교(우리가 밀고 싶은 결론)와 무관하게, 두 FP 모두에서 일관되게 같은 방향(단순화<원본)이라 "원하는 결론에 맞춰 고른 지표"라는 반박이 성립하기 어려움.
+
+**메커니즘 — temperature mismatch (코드로 확인)**: `cost_spectrum_info_nce`는 밴드별 가변 온도 $\tau_b = \tau_{min} + \alpha\bar c_b$(`loo_unseen_recovery.py:306`)를 쓰는데, 같이 걸리는 보조 손실 `load_balance_loss(q, E)`(MoE expert-collapse 방지용, Shazeer et al. 2017)는 `tau=None` 기본값이라 **고정 전역 temperature 0.05**(`TEMPERATURE = 0.05`, 파일 56번 줄)를 그대로 씀(`loo_recovery_lite20_paperloss.py:63-64`에서 두 손실을 이렇게 같이 호출). 즉 주 손실의 실제 temperature가 밴드마다 바뀌는데, collapse를 막아야 할 보조 손실은 그 변화를 전혀 모른 채 고정된 값으로 작동함 — 이 함수 자신의 docstring도 "primary loss와 같은 temperature를 써야 한다"고 명시해 둔 조건을 논문 원본 loss 조합에서는 실제로 어기고 있는 셈. 단순화 loss(`cost_info_nce`)는 애초에 전역 단일 temperature 하나만 쓰므로 이 불일치가 구조적으로 발생하지 않음.
+
+**reasoning-RL 클러스터(17.14의 6개 모델: Qwen3-8B, DeepSeek-R1-0528-Qwen3-8B, GLM-Z1-9B-0414, NVIDIA-Nemotron-Nano-9B-v2, Intern-S1-mini, MiniCPM4.1-8B) 비용 재확인**: 이 6개의 평균 정규화 비용이 나머지 14개 평균의 **7.38배**(cost_dict 기준 실측, 이전에 언급했던 배수와 다름 — 재계산으로 정정). 비용이 높은 모델일수록 코사인 유사도 페널티(`cost_pen = gamma·cost_norm`)가 커지고 손실 지형이 가팔라지는데, 여기에 위 temperature mismatch까지 겹치면 이 클러스터가 유독 불안정해지는 방향과 일치함(다만 이건 정성적 정합성이지 별도로 통제된 인과 검증은 아님 — 발표에서는 "정합적인 가설"로만 제시할 것).
+
+**(2) True Oracle 검증 — collapse가 정답 분포를 반영한 결과인가**: Set B 3,115개 쿼리 중 정답 가능한 2,731개에 대해, "정답을 맞춘 모델 중 가장 저렴한 모델"(=true oracle)을 모델별로 집계하고, 라우터의 실제 쏠림(collapse_nearest_dist, `cost_info_nce`/Ceiling(Pseudo Ceiling)/seed=0/20-fold 합산)과 비교:
+
+| | true oracle 점유율 | 라우터 실제 쏠림 점유율 |
+|---|---|---|
+| GLM-Z1-9B-0414 | **68.3%** | 7.0% |
+| MiniCPM4.1-8B | 9.6% | 4.9% |
+| MiMo-7B-RL-0530 | 4.0% | 4.0% |
+| Qwen2.5-Coder-7B-Instruct | 3.7% | **9.8%**(라우터 1위) |
+| (나머지 16개) | 각 <3% | 각 1.6~6.6% |
+
+- true oracle의 top3 점유율은 **0.8184**(chance 0.15) — 실제 정답 자체가 극도로 GLM-Z1-9B-0414 한 모델에 쏠려있음.
+- 20개 모델 전체에 대해 (true oracle 점유율) vs (라우터 쏠림 점유율)의 **Spearman rho=0.2611, p=0.2662 — 통계적으로 무상관**.
+- 결정적 근거: true oracle의 68.3%를 차지하는 GLM-Z1-9B-0414에게 라우터는 겨우 7.0%만 배정함(오라클 몫의 1/10 수준). 반대로 라우터가 가장 많이 배정한 Qwen2.5-Coder-7B-Instruct는 true oracle 점유율이 3.7%에 불과함.
+
+**결론(두 방향을 다 인정하는 정직한 프레이밍)**: 정답 분포 자체가 극단적으로 쏠려있다는 건 사실이라, "쏠림 자체가 비정상"이라는 주장은 할 수 없음. 하지만 **라우터가 관찰하는 collapse는 이 실제 오라클 쏠림과 통계적으로 무관하게(rho=0.26, ns) 별도 모델(Qwen2.5-Coder 등)에 쏠려있음** — 즉 "우리 라우터의 collapse가 정답 구조를 정확히 학습해서 생긴 건강한 현상"이라는 반박은 데이터로 성립하지 않음. 오히려 라우터가 진짜 oracle 구조를 제대로 못 잡아내고 있다는 뜻(under-fitting 쪽에 가까움)이며, 이는 collapse가 "의도된 정답 반영"이 아니라 "학습 과정에서 생긴 편향(온도 불일치, 좁은 pool에서의 상대적 강자로의 쏠림)"이라는 이 세션 전체의 진단과 일관됨.
+
+### 17.21 "AUC 말고 실제 라우팅 성능도 확인했냐" Q&A 대비 — router_overall_accuracy 검증 + AUC의 역할 재정리 (2026-08-03)
+
+**예상 질문**: "지금까지 AUC만 보여줬는데, 실제 라우팅 성능(라우터가 고른 모델이 진짜 정답을 맞추는 비율)은 확인해봤냐? 새 loss의 라우팅 성능이 실제로 좋아지는지 확인했냐?"
+
+**답: 이미 매 fold 결과에 `router_overall_accuracy`(라우터의 top-1 선택이 Set B에서 실제로 정답인 비율)가 저장돼 있었음 — 지금까지 AUC만 집계하고 이걸 따로 안 봤을 뿐. 지금 집계함.**
+
+| Loss | Ceiling router_overall_accuracy | Perplexity router_overall_accuracy | delta | p |
+|---|---|---|---|---|
+| `cost_info_nce`(단순화, 3-시드 pooled, n=60) | 0.6172 | 0.6158 | +0.0014 | 0.2982 (ns) |
+| `cost_spectrum_info_nce`(논문 원본, 3-시드 pooled, n=60) | 0.5784 | 0.5693 | +0.0091 | **0.000019** |
+
+**AUC 격차만큼 실제 라우팅 정확도 격차가 나지는 않음(특히 단순화 loss에서는 거의 무의미, p=0.30). 이건 나쁜 소식이 아니라 AUC가 원래 재려는 것과 router_overall_accuracy가 재는 것이 다르기 때문**: AUC(`auc_heldout_correctness`)는 held-out(unseen) 모델 **1개**의 FP 유사도가 그 모델의 실제 정답 여부를 얼마나 잘 rank-order하는지만 재는 지표 — 이 프로젝트의 실제 연구 질문("재학습 없이 descriptor 하나만으로 unseen 모델을 얼마나 잘 복원하는가")을 정확히 겨냥한 지표임. 반면 `router_overall_accuracy`는 20개 후보 중 19개가 이미 학습에 쓰인 seen 모델이라 그 라우팅 품질에 압도적으로(19:1) 좌우됨.
+
+**이 두 지표를 같이 보면 오히려 프레이밍이 명확해짐**: router_overall_accuracy가 FP에 따라 거의 안 갈린다는 건 "이미 아는 19개 모델 사이의 라우팅은 어느 FP를 쓰든 이미 잘 되고 있다(포화 상태)"는 뜻이고, AUC가 크게 갈린다는 건 "그 위에 새로 추가되는 unseen 모델을 얼마나 잘 이해하느냐"에서만 Ceiling FP가 확실히 앞선다는 뜻. 즉 **전체 라우팅 성능을 깎아먹지 않으면서 정확히 어려운 부분(unseen 복원)에서만 이긴다** — AUC를 주 지표로 쓴 선택이 자의적이지 않고 연구 질문에 정확히 부합함을 보여줌.
+
+**보조 검증 시도, 결과는 애매함(정직하게 기록)**: `oracle_match_rate`(held-out 모델이 특정 쿼리의 진짜 oracle일 때 라우터가 실제로 그걸 골랐는지 비율)로 더 직접적인 확인을 시도했으나, fold당 해당 이벤트 수가 너무 적어(n_oracle_is_M이 작음) 노이즈가 커서 방향이 깨끗하게 안 나옴(단순화 loss pooled: Ceiling 0.0678 vs Perplexity 0.0354, delta+0.0324, p=0.147; 논문 loss pooled: delta+0.0111, p=0.730). **이 지표는 추가 증거로 쓰지 않음** — 위 두 지표(AUC + router_overall_accuracy)로만 설명하는 게 정직함.
+
+**아직 안 채운 구멍(정직하게 표시)**: 위 비교는 전부 raw accuracy 기준이고, 비용을 고려한 진짜 cost-accuracy tradeoff(AUDC 등)는 이 lightweight-20 pool에서 한 번도 계산해본 적 없음. 참고로 비용을 완전히 무시한 "static-best"(항상 정확도 1위 모델만 사용, Qwen3-8B, 정확도 0.6533) baseline이 라우터의 raw accuracy(0.578~0.617)보다 높게 나오는데, Qwen3-8B는 비용 순위 18/20(거의 최고가 축)이라 이건 공정한 비교가 아님(라우터는 비용까지 고려한 트레이드오프를 하는 것). 하지만 이 트레이드오프를 정량적으로 보여주는 지표(AUDC)는 아직 미검증 — "라우팅 성능이 실제로 좋아지냐"는 질문에 raw accuracy로는 답했지만, cost-accuracy tradeoff까지 완전히 검증된 건 아님을 발표에서 숨기지 말 것.
+
+### 17.22 AUDC(cost-accuracy tradeoff) full-pool 실험 — 17.21의 미검증 구멍을 채움 (2026-08-03)
+
+**배경**: 17.21에서 "라우팅 성능이 실제로 좋아지냐" Q&A에 raw accuracy(router_overall_accuracy)로는 답했지만, 진짜 cost-accuracy tradeoff(AUDC)는 이 lightweight-20 pool에서 한 번도 계산 안 해봤다는 구멍을 남겨뒀음. 이번에 채움.
+
+**방법** (`scripts/llmrouterbench/audc_fullpool_lite20.py`, 신규): LOO(held-out) 방식이 아니라 **20개 모델 전체로 한 번에 학습**(재학습 필요 없이 fold 20번 대신 FP당 1번만 학습하면 되는 구조 — Ceiling FP, Perplexity FP 각각). 이미 학습된 임베딩 공간에서 inference 시점 결정 규칙을 $\text{argmax}(sim - \lambda \cdot c_m)$로 바꾸고, $\lambda$를 0(비용 완전 무시)부터 50까지 41개 지점으로 sweep — 지점마다 (평균 비용, 정확도) 쌍을 구해서 cost-accuracy curve를 그리고, 두 FP를 **공통 cost grid**(정규화 안 하면 Ceiling·Perplexity가 도달하는 cost 범위 자체가 달라서 직접 비교가 안 됨 — 처음 계산할 때 이 실수를 했다가 재계산함)에 맞춰 step-function으로 보간한 뒤 trapezoidal 적분해서 AUDC를 구함. `cost_info_nce`(단순화 loss), seed 0/1/2.
+
+**결과**:
+
+| seed | Perplexity AUDC | Ceiling AUDC | delta |
+|---|---|---|---|
+| 0 | 0.6170 | 0.6042 | -0.0128 |
+| 1 | 0.6133 | 0.6135 | +0.0002 |
+| 2 | 0.6133 | 0.6176 | +0.0043 |
+| **3-시드 평균** | **0.6145** | **0.6118** | **-0.0028** |
+
+**paired t-test (n=3): p=0.6478 — 방향도 seed마다 음/거의0/양으로 흔들리고, 통계적으로 완전히 무의미한 차이.** (n=3이라 검정력 자체가 낮다는 것도 명시할 것 — 이 프로젝트 다른 검정(LOO fold 단위, n=60)만큼 신뢰도 높은 검정은 아님.) $\lambda=0$(비용 무시) 정확도로도 delta=-0.0017, p=0.6458로 동일하게 무의미.
+
+**해석**: 나쁜 소식이 아니라 17.21 프레이밍을 한 번 더 확인해줌 — held-out 없이 20개 모델 전체로 학습했을 때(=순수 "이미 아는 모델들 사이의 라우팅" 성능), cost-accuracy tradeoff는 Ceiling FP와 Perplexity FP 사이에 유의미한 차이가 없음. Ceiling FP의 강점은 AUC로 잡히는 **unseen 모델 복원**에 있지, 이미 아는 모델들의 cost-aware 라우팅 품질 자체에는 없다는 것 — 17.21의 "전체 라우팅 성능을 깎아먹지 않으면서 어려운 부분에서만 이긴다"는 결론과 정확히 일관됨.
+
+**결과물**: `local_descriptors/llmrouterbench_lite20/audc_fullpool_results_seed{0,1,2}.json`, `audc_fullpool_multiseed_table.png`.
+
+### 17.23 (급히 기록) load_balance_loss OFF 상태의 base collapse 수준 — paper loss(cost_spectrum_info_nce), full pool, seed=0 (2026-08-04)
+
+`scripts/llmrouterbench/collapse_fullpool_paperloss_nobalance.py`로 확인. β=1.0(기존)일 때 top3_share ~0.39-0.43이었는데, **β=0(load_balance_loss 완전히 끔)이면 top3_share가 Perplexity 0.9750, Ceiling 0.9800로 거의 완전 collapse**함 — Intern-S1-mini + DeepSeek-R1-Distill-Qwen-7B 두 모델이 200개 probe 중 188~193개를 독점.
+
+**결정적으로, 이 두 모델의 true oracle 점유율은 각각 0.44%뿐**(진짜 주역인 GLM-Z1-9B-0414는 68.25%인데 무시당함) — "collapse가 oracle과 무관하다"는 17.20 결론이 base 상태(방어장치 없음)에서는 훨씬 더 극단적으로 나타남. load_balance_loss는 (temperature mismatch로 최적은 아니어도) top3_share를 98%→40%대로 확실히 줄이는 실질적 효과가 있음이 이걸로 확인됨.
+
+또한 CSCR 논문 원본 코드(`train_query_encoder.py`, upstream과 byte-identical 확인됨, 커밋 작성자 Reza Shirkavand 본인)엔 `load_balance_loss`가 아예 없음 — `cost_info_nce`와 `cost_spectrum_info_nce` 둘 다 논문 저자 코드에 실존하지만(전자는 논문 본문에 라벨링 안 된 버전), load-balancing 보조항은 이 프로젝트가 자체 추가한 것. 즉 "논문 원본 방법론은 애초에 collapse 방어 장치가 없다"가 정확한 설명.
+
+**미해결 가설(발표에는 말로만 언급, 검증 안 됨)**: 멘토가 이전에 진단한 "multi-positive 가중평균이 여러 정답 모델을 동시에 만족시키는 '제너럴리스트 유인자'를 만들어 collapse를 조장한다"는 가설(`cost_info_nce_cheapest`의 docstring, PROGRESS.md 16.2 참고) — 검증용 pilot(`scripts/cheapest_loss_pilot.py`, 4개 모델)은 실행됐으나 결과가 저장 안 돼 있어 확인 불가. 다음 세션 후보 작업.
+
+**결과물**: 별도 JSON 저장 없음(콘솔 출력만, 시간 급해서 스크립트 실행 결과만 기록). 재현하려면 위 스크립트 그대로 재실행.
+
+### 다음 할 일 (2026-08-03 세션 종료 시점, 최신)
+1. **✅ 완료**: lightweight-20 parametric LOO multi-seed 재검증(V1, V2 둘 다) — 17.11, 17.13 참고.
+2. **✅ 완료**: Random FP negative control — 17.13 참고, 파이프라인 편향 없음 확인.
+3. **✅ 완료**: 6개 모델 AUC 저조 현상 원인 규명 — 17.14 참고, probe 선정 편향 발견 + future work 방향 확정.
+4. **✅ 완료**: "Altered Loss" 채택 근거 3종 + multi-seed 확정 + collapse degree 정량 비교 + true oracle 무상관성 검증 — 17.19, 17.20 참고. Q&A 방어 논리 확정.
+5. **✅ 완료**: "AUC 말고 실제 라우팅 성능 확인했냐" Q&A 대비 — 17.21 참고. router_overall_accuracy 집계 완료, AUC=unseen 복원 전용 지표라는 프레이밍 확정.
+6. **✅ 완료**: AUDC(cost-accuracy tradeoff) full-pool 실험, multi-seed — 17.22 참고. 17.21의 마지막 미검증 구멍 채움, 유의미한 차이 없음으로 확정(프레이밍과 일관).
+7. **발표 자료 작성 시작**(사용자 확정) — 서사: "본인이 제안한 가설 → kNN 파일럿 검증 → parametric 확장 시도 → 실패 진단(tier gap) → 원인 규명 및 재현(V1/V2/Random 전부 multi-seed 확정) → 세부 원인 추가 규명(probe 선정 편향) → loss 변형 근거 방어(17.19/17.20) → 실제 라우팅 성능 방어(17.21/17.22) → 후속 연구(Dual-Tier + fine-grained universal scoring) 제안". 이 프로젝트가 "CSCR 논문 재현"이 아니라 "본인의 독자적 연구 주제"라는 점을 명확히 할 것.
+8. **Dual-Tier 라우팅 설계 + EmbedLLM 규모 확보** — 17.11/18번 섹션 참고. 교수님께 EmbedLLM 규모 GPU 자원 요청 필요 (우선순위 낮춤, 발표 이후).
+9. Set A vs Set B로 교정한 Mantel 테스트(16.12/16.16 이월) — 여전히 미실행, 우선순위 낮음.
+10. (선택) probe 선정 편향(17.14)을 교정한 버전 재시도 — 서브그룹별로도 분산을 균형있게 반영하는 probe 선정 기법 설계. 발표 이후 여유 있으면.
+10. **(미검증, 발표 전 여유 있으면 우선순위 고려)** cost-accuracy tradeoff 지표(AUDC 등)를 lightweight-20 pool에서 한 번도 계산 안 함 — 17.21 참고. static-best(비용 무시, Qwen3-8B)가 raw accuracy로는 라우터를 이기는데, 비용까지 고려하면 어떤지는 미확인.
 
 ---
 
