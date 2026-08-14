@@ -46,18 +46,24 @@ def main():
     true_scores = np.array([[math.exp(per_prompt[pid]["scores"][m]) for m in pool_11] for pid in ids])
     name_to_col = {m: i for i, m in enumerate(pool_11)}
 
+    LOGIT_DIR = Path("local_descriptors/mix-instruct-logit")
     results = {}
-    for fp_name, desc_dir in [("Perplexity", base.PERP_DIR), ("Ceiling", base.CEILING_DIR), ("V1.2", base.V12_DIR)]:
+    for fp_name, desc_dir in [("Perplexity", base.PERP_DIR), ("Ceiling", base.CEILING_DIR),
+                               ("V1.2", base.V12_DIR), ("Logit", LOGIT_DIR)]:
         print(f"\n{'='*60}\nFP type: {fp_name}\n{'='*60}")
         E, desc_names = load_descriptors(str(desc_dir), pool=pool_11)
         E = np.stack(E)
         E = E / (np.linalg.norm(E, axis=1, keepdims=True) + 1e-9)
         name_to_row = {n: i for i, n in enumerate(desc_names)}
-        sim_full = E @ E.T  # (11, 11) cosine similarity in FP space
+        sim_full = E @ E.T  # cosine similarity in FP space
+        fold_pool = desc_names  # some FP types (e.g. Logit) only cover a subset of pool_11
+        if len(fold_pool) < len(pool_11):
+            print(f"  NOTE: {fp_name} only covers {len(fold_pool)}/{len(pool_11)} pool models "
+                  f"({sorted(fold_pool)}) -- LOO restricted to this subset for a fair (same-neighbor-set) comparison.")
 
         fp_rhos, uniform_rhos = [], []
-        for held_out in pool_11:
-            others = [m for m in pool_11 if m != held_out]
+        for held_out in fold_pool:
+            others = [m for m in fold_pool if m != held_out]
             m_row = name_to_row[held_out]
             sims = np.array([sim_full[m_row, name_to_row[o]] for o in others])
             w = np.clip(sims, 0, None)
@@ -84,7 +90,7 @@ def main():
         print(f"mean FP-weighted proxy rho:      {fp_rhos.mean():.4f} (std {fp_rhos.std():.4f})")
         print(f"mean uniform (no-FP) proxy rho:  {uniform_rhos.mean():.4f} (std {uniform_rhos.std():.4f})")
         print(f"mean improvement over uniform:   {(fp_rhos - uniform_rhos).mean():+.4f}  "
-              f"(positive in {int((fp_rhos > uniform_rhos).sum())}/11 folds)")
+              f"(positive in {int((fp_rhos > uniform_rhos).sum())}/{len(fold_pool)} folds)")
 
         results[fp_name] = {
             "held_out_models": pool_11,

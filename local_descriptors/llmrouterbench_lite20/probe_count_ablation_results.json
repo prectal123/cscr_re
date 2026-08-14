@@ -1,0 +1,92 @@
+[
+  {
+    "n_per_category": 1,
+    "n_total_probes": 22,
+    "mean_fp_rho": 0.6471070970050429,
+    "mean_uniform_rho": 0.6420594934035773,
+    "mean_delta": 0.00504760360146563,
+    "p_value": 0.4556912547031745,
+    "n_improved": 14
+  },
+  {
+    "n_per_category": 2,
+    "n_total_probes": 44,
+    "mean_fp_rho": 0.6524261524532293,
+    "mean_uniform_rho": 0.6420594934035773,
+    "mean_delta": 0.010366659049652055,
+    "p_value": 0.10689136775117836,
+    "n_improved": 15
+  },
+  {
+    "n_per_category": 3,
+    "n_total_probes": 66,
+    "mean_fp_rho": 0.6526883897746126,
+    "mean_uniform_rho": 0.6420594934035773,
+    "mean_delta": 0.01062889637103539,
+    "p_value": 0.08611749640314867,
+    "n_improved": 14
+  },
+  {
+    "n_per_category": 4,
+    "n_total_probes": 88,
+    "mean_fp_rho": 0.6524824743676607,
+    "mean_uniform_rho": 0.6420594934035773,
+    "mean_delta": 0.0104229809640836,
+    "p_value": 0.10362903137039196,
+    "n_improved": 15
+  },
+  {
+    "n_per_category": 6,
+    "n_total_probes": 132,
+    "mean_fp_rho": 0.6544475284147758,
+    "mean_uniform_rho": 0.6420594934035773,
+    "mean_delta": 0.012388035011198544,
+    "p_value": 0.04324526929441833,
+    "n_improved": 15
+  },
+  {
+    "n_per_category": 8,
+    "n_total_probes": 176,
+    "mean_fp_rho": 0.655655087196128,
+    "mean_uniform_rho": 0.6420594934035773,
+    "mean_delta": 0.013595593792550795,
+    "p_value": 0.02485309513140111,
+    "n_improved": 15
+  },
+  {
+    "n_per_category": 12,
+    "n_total_probes": 264,
+    "mean_fp_rho": 0.653326665635949,
+    "mean_uniform_rho": 0.6420594934035773,
+    "mean_delta": 0.011267172232371614,
+    "p_value": 0.09147916710217291,
+    "n_improved": 14
+  },
+  {
+    "n_per_category": 16,
+    "n_total_probes": 352,
+    "mean_fp_rho": 0.6551928956143203,
+    "mean_uniform_rho": 0.6420594934035773,
+    "mean_delta": 0.013133402210742957,
+    "p_value": 0.028324939873243447,
+    "n_improved": 14
+  },
+  {
+    "n_per_category": 20,
+    "n_total_probes": 440,
+    "mean_fp_rho": 0.6545046961216444,
+    "mean_uniform_rho": 0.6420594934035773,
+    "mean_delta": 0.012445202718067238,
+    "p_value": 0.044814307389144124,
+    "n_improved": 14
+  },
+  {
+    "n_per_category": 24,
+    "n_total_probes": 528,
+    "mean_fp_rho": 0.6558754025251048,
+    "mean_uniform_rho": 0.6420594934035773,
+    "mean_delta": 0.013815909121527494,
+    "p_value": 0.022529127498693995,
+    "n_improved": 15
+  }
+]

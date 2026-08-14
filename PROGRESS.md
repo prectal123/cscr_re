@@ -5,9 +5,11 @@
 
 ---
 
-## 0. TL;DR — 2026-08-02 세션 종료 시점, 다음은 여기서부터 (최신)
+## 0. TL;DR — 2026-08-11 세션 종료 시점, 다음은 여기서부터 (최신)
 
-**가장 최근 세션 요약은 17번 섹션(LOO unseen-model 실험) 참고, EmbedLLM pool 규격화/v1.2 프로토타입은 18번 섹션 참고(별도 세션에서 병행 진행됨).** 핵심: (1) RouterBench(11개 모델)가 너무 작아서 collapse가 생기는지 확인하려고 **LLMRouterBench**(33개 모델, 22개 태스크 카테고리 확보 가능)로 pool을 3배 확장 — parametric LOO는 여전히 유의미한 개선 없음, pool 크기 자체는 원인이 아님을 확인. (2) probe 선정이 flagship/lightweight tier gap에 지배당하는 버그 발견 → **flagship 13개를 아예 제외하고 lightweight 20개 모델로 피벗**(22개 카테고리 전부 확보). (3) PCA로 Ceiling FP를 분해해서 **핵심 메커니즘 규명**: 신호의 28.5%가 "이 모델이 전반적으로 얼마나 센가"라는 단일 coarse 축이고, 이걸 제거하면 성능이 완전히 붕괴함 — Ceiling이 세밀한 도메인 매칭이 아니라 이 coarse 축 덕분에 이겼다는 뜻. (4) **카테고리 단위로 집계한(개별 probe 아닌) Ceiling FP(Ceiling V2)**가 uniform/Perplexity/기존 Ceiling(V1) 셋 다 유의미하게 이기는 첫 깨끗한 승리 기록. (5) lightweight-20 pool의 **parametric LOO에서도 Ceiling V1이 Perplexity를 유의미하게 이김**(3-시드 평균 delta+0.109, p=0.0024로 확정) — 33개 풀에서는 안 됐던 게, tier gap을 없애니 실제 학습 단계에서도 처음으로 재현됨. (6) 33개 풀에서 Ceiling FP의 지배축이 사실상 tier(플래그십/경량) 분리축임을 직접 확인 → **"Dual-Tier 라우팅"(coarse 축=tier 게이트, 나머지=tier 내부 도메인 매칭) 후속 연구 아이디어 도출, 검증에는 EmbedLLM 규모 필요.** (7) V1/V2 둘 다 multi-seed(3개) 확정 완료 — V2가 방향상 V1보다 약간 우세하나 유의수준 미달(p=0.083), 둘 다 Perplexity는 확실히 이김. Random FP(순수 노이즈) negative control로 파이프라인 자체엔 편향 없음 확인. (8) 특정 6개 모델("reasoning-RL 클러스터")이 V1/V2/Perplexity 전부에서 AUC가 나쁜 이유를 추적 → **probe 선정 편향 발견**: 고분산 probe 528개만 보면 이 그룹 간 격차가 전체 모집단(19%p)의 2배 이상(41%p)으로 과장돼 있었음 — mean-centering이 못 잡는 새로운 종류의 confound. **다음 할 일: 발표 자료 작성 시작(17.14의 future-work 결론 포함), 여유 되면 EmbedLLM 자원 확보/Dual-Tier 설계.**
+**가장 최근 세션 요약은 19번 섹션(V1.3 LLM-judge 시도 → probe-count ablation 진단 → domain+difficulty 이중 라우팅 설계) 참고.** 그 이전 세션 요약은 17번 섹션(LOO unseen-model 실험) 참고, EmbedLLM pool 규격화/v1.2 프로토타입은 18번 섹션 참고(별도 세션에서 병행 진행됨).
+
+**19번 섹션 한 줄 요약**: (1) Claude Sonnet 5를 통합 judge로 쓰는 V1.3 FP를 시도했으나(66 probe, 22카테고리×3, $2.85) kNN에서 Ceiling V2에 유의하게 패배(delta=-0.0196, p=0.0067). (2) 원인을 무료 GT 기반 probe-count ablation으로 진단: N=3/카테고리는 **완벽한 채점자(GT)를 써도** 유의성 미달(p=0.086), 유의성은 N=6~8부터 확보됨 — judge 품질이 아니라 표본 크기 문제였음을 확정. (3) "judge가 GT를 얼마나 잘 흉내내는가"는 인접 연구주제로 스코프 아웃 결정. (4) 최종 발표(2주 후)용으로 domain(FP latent space 코사인 유사도, 학습 불필요)+difficulty(도메인-정규화 스칼라, probe 최근접이웃 가중평균, 학습 불필요) 이중 신호 기반 캐스케이드 라우터 프로토타입을 설계, 다음 세션에서 구현 예정. 핵심: (1) RouterBench(11개 모델)가 너무 작아서 collapse가 생기는지 확인하려고 **LLMRouterBench**(33개 모델, 22개 태스크 카테고리 확보 가능)로 pool을 3배 확장 — parametric LOO는 여전히 유의미한 개선 없음, pool 크기 자체는 원인이 아님을 확인. (2) probe 선정이 flagship/lightweight tier gap에 지배당하는 버그 발견 → **flagship 13개를 아예 제외하고 lightweight 20개 모델로 피벗**(22개 카테고리 전부 확보). (3) PCA로 Ceiling FP를 분해해서 **핵심 메커니즘 규명**: 신호의 28.5%가 "이 모델이 전반적으로 얼마나 센가"라는 단일 coarse 축이고, 이걸 제거하면 성능이 완전히 붕괴함 — Ceiling이 세밀한 도메인 매칭이 아니라 이 coarse 축 덕분에 이겼다는 뜻. (4) **카테고리 단위로 집계한(개별 probe 아닌) Ceiling FP(Ceiling V2)**가 uniform/Perplexity/기존 Ceiling(V1) 셋 다 유의미하게 이기는 첫 깨끗한 승리 기록. (5) lightweight-20 pool의 **parametric LOO에서도 Ceiling V1이 Perplexity를 유의미하게 이김**(3-시드 평균 delta+0.109, p=0.0024로 확정) — 33개 풀에서는 안 됐던 게, tier gap을 없애니 실제 학습 단계에서도 처음으로 재현됨. (6) 33개 풀에서 Ceiling FP의 지배축이 사실상 tier(플래그십/경량) 분리축임을 직접 확인 → **"Dual-Tier 라우팅"(coarse 축=tier 게이트, 나머지=tier 내부 도메인 매칭) 후속 연구 아이디어 도출, 검증에는 EmbedLLM 규모 필요.** (7) V1/V2 둘 다 multi-seed(3개) 확정 완료 — V2가 방향상 V1보다 약간 우세하나 유의수준 미달(p=0.083), 둘 다 Perplexity는 확실히 이김. Random FP(순수 노이즈) negative control로 파이프라인 자체엔 편향 없음 확인. (8) 특정 6개 모델("reasoning-RL 클러스터")이 V1/V2/Perplexity 전부에서 AUC가 나쁜 이유를 추적 → **probe 선정 편향 발견**: 고분산 probe 528개만 보면 이 그룹 간 격차가 전체 모집단(19%p)의 2배 이상(41%p)으로 과장돼 있었음 — mean-centering이 못 잡는 새로운 종류의 confound. **다음 할 일: 발표 자료 작성 시작(17.14의 future-work 결론 포함), 여유 되면 EmbedLLM 자원 확보/Dual-Tier 설계.**
 
 ---
 
@@ -984,3 +986,109 @@ Welch t-test: Ceiling(Pseudo Ceiling)에서 논문 원본 loss가 단순화 loss
 ### 18.3 다음 단계 — 실제 백본 모델로 검증 (오늘 밤 예정, 미실행)
 
 15.2는 Claude가 직접 요약문을 쓴 프로토타입이라 파이프라인의 상한선만 확인한 것. `colab/test_v12_backbones.py` 작성 완료(미실행) — 실제 가벼운 backbone 후보 2개(`microsoft/Phi-3-mini-4k-instruct` 3.8B, `mistralai/Mistral-7B-Instruct-v0.2` 7B, 둘 다 ungated) × instruction 3종(자유서술 / 구조화 JSON / 신뢰성-중심— 15.2에서 실제 발견한 "domain보다 reliability/format 패턴이 더 의미 있었다"는 교훈을 반영해 세 번째 variant를 별도로 설계함) 조합 총 6가지를 11개 모델 전체에 대해 돌려서 RSA를 비교함. Colab T4로 충분(4bit 양자화), probe 응답은 모델 다운로드 없이 데이터셋에서 직접 추출. 결과는 `Drive/cscr_repro/v12_backbone_sweep/sweep_results.json`에 rho 내림차순으로 저장됨.
+
+---
+
+## 19. V1.3(LLM-judge) 시도 → probe-count ablation 진단 → domain+difficulty 이중 라우팅 설계 (2026-08-11)
+
+### 19.1 용어 정리 (세션 중 혼동 발생, 코드로 확정)
+
+- **Ceiling V1** = `build_ceiling_fp_lite20.py`, 528차원(22카테고리 × 카테고리당 24개, `PROBES_PER_DATASET=24`, pooled-variance 상위 선택), mean-center + L2-normalize.
+- **Ceiling V2** = `build_ceiling_fp_lite20_categoryrate.py`, 22차원(카테고리당 Set A **전체** 평균), probe 선택 과정 자체가 없음.
+- **"Pseudo Ceiling"**(3-benchmark 비교표에 쓰인 용어, `scripts/routerbench_pseudo_ceiling.py`/`scripts/mixinstruct_pseudo_ceiling.py`) = **Ceiling V1과 동일한 방법론**(카테고리별 고분산 probe 여러 개를 개별 차원으로 유지, 평균 안 냄)을 MixInstruct/RouterBench에도 적용한 버전. "카테고리당 1개만 뽑은 22차원 실험"은 코드베이스에 존재한 적 없음(세션 중 실제로 검색해서 확인) — 이전에 이 이름으로 발표했던 실험은 Ceiling V1/Pseudo Ceiling(528차원, 카테고리당 24개)이 맞았고, 단지 "22개 카테고리"라는 숫자가 "22차원"으로 기억에서 단순화된 것이었음.
+
+### 19.2 V1.3 FP — Claude Sonnet 5 통합 judge 시도
+
+**동기**: 22개 카테고리가 원래 서로 다른 채점 방식(exact-match, 코드 실행, arenahard 계열은 정체불명의 외부 judge)을 쓰고 있어 측정 방식이 카테고리 간 이질적(incommensurable) — 하나의 일관된 judge로 전부 다시 채점하면 이 문제를 해결하면서, 동시에 probe-selection bias(17번 섹션에서 발견한 41%p vs 실제 19%p 왜곡)도 균형 잡힌 표본 선택으로 같이 해결할 수 있을 것으로 기대.
+
+**설계**: 22카테고리×3개 균형 선택(`v1_3_probe_selection.json`, 66 probe) → 정답 있는 18개 카테고리는 "prediction이 ground_truth와 동치인가" 루브릭, arenahard 계열 4개는 절대 품질 루브릭 → Claude Sonnet 5 Batch API로 1320콜(66×20) 채점 → 22차원 category-mean으로 집계, mean-center + L2-normalize.
+
+**실행 이슈(재현용 기록)**:
+- Batch API `custom_id`는 `^[a-zA-Z0-9_-]{1,64}$` 패턴만 허용 — 모델명에 마침표가 들어간 경우(`Llama-3.1-8B-Instruct` 등) 400 에러. `.replace(".", "-")`로 해결.
+- 1320콜 중 10개는 max_tokens=1024가 빠듯해서 JSON이 중간에 끊김(parse error) — probe 행 평균으로 fallback 처리, 0.76%라 무시 가능한 수준.
+- 코드 3개 카테고리(humaneval/mbpp/livecodebench)는 재채점하지 않고 기존 실행-기반 score를 1-10 스케일로 재조정해 대체(텍스트만 읽는 judge보다 실제 테스트 실행이 더 신뢰도 높다는 판단) — 이 로직을 배치 **제출 스크립트**엔 반영을 깜빡해서 1320콜 전체가 나갔음(계획은 1140콜) — 결과 수거 스크립트에서 사후에 correction 적용. 다음에 비슷한 배치 짤 때 제출 전 체크리스트에 넣을 것.
+- **API 키를 채팅에 직접 붙여넣으면 안 됨**(Claude Code 안전 규칙, 사용자 동의해도 예외 없음) — 로컬 파일 경로(`C:\Users\user\anthropic_key.txt`)로 우회, 스크립트가 런타임에 파일을 읽어 환경변수로 설정(Claude가 파일 내용을 직접 열람하지 않음).
+
+**결과**: V1.3 vs CeilingV2 직접 비교, delta=-0.0196, **p=0.0067**(V1.3이 유의하게 열세, 6/20만 개선). V1.3 vs uniform은 delta=-0.0016, p=0.857(사실상 무의미). V1.3 vs Perplexity는 delta=-0.0081, p=0.289(유의하지 않음, 비슷한 수준).
+
+### 19.3 진단 — 무료 GT 기반 probe-count ablation (`scripts/llmrouterbench/probe_count_ablation.py`)
+
+V1.3이 왜 안 됐는지(judge 품질 문제 vs 표본 크기 문제)를 판별하기 위해, **LLM judge 호출 없이** 기존 GT 점수를 "완벽한 judge의 채점"으로 간주하고 카테고리당 probe 개수(N)를 1~24로 스윕하며 같은 kNN 테스트 반복. `probe_info.json`(이미 카테고리 내 분산 내림차순 정렬됨)의 top-N만 사용.
+
+| N/카테고리 | 전체 probe | delta | p-value |
+|---|---|---|---|
+| 1 | 22 | +0.0050 | 0.456 |
+| 2 | 44 | +0.0104 | 0.107 |
+| **3(V1.3과 동일)** | **66** | **+0.0106** | **0.086(미달)** |
+| 6 | 132 | +0.0124 | **0.043(첫 유의)** |
+| 8 | 176 | +0.0136 | 0.025 |
+| 24(=Ceiling V1/Pseudo Ceiling) | 528 | +0.0138 | 0.0225 |
+
+N=24 결과(+0.0138, p=0.0225)가 기존에 발표했던 Pseudo Ceiling 수치(+0.0138, p=0.022)와 정확히 일치 — ablation 스크립트가 검증된 방법론을 올바르게 재현함을 확인.
+
+**결론**: N=3은 **완벽한 채점자(GT)를 써도** 유의성 미달 — V1.3의 실패는 judge 품질이 아니라 순수 표본 크기 문제였음이 확정됨. 유의성은 N=6~8부터 확보, N=12 이후는 체감수익 감소(거의 정체). **향후 LLM-judge FP를 다시 시도한다면 N=6~8/카테고리($8~10 선)가 합리적 타겟이지, N=24($31.6)까지 갈 필요는 없어 보임.**
+
+### 19.4 스코프 결정 — judge 충실도 검증은 프로젝트 범위 밖
+
+"LLM judge가 GT를 얼마나 잘 근사하는가"는 LLM-as-judge calibration/agreement 쪽에 이미 상당한 별도 문헌이 있는 인접 연구 주제로 판단 — 본 연구의 핵심("capability score를 어떻게 재분배·활용하는가")과 어긋나므로, V1.3/judge 확장 시도는 19.2~19.3 결과로 마무리하고 추가 투자하지 않기로 결정. 19.3의 ablation 자체는 GT만 쓴 거라 judge 품질과 무관하며, "capability descriptor 구축에 카테고리당 신호가 몇 개 필요한가"라는 본 연구 범위 안의 질문에 대한 유효한 결과로 남음.
+
+### 19.5 최종 발표(2026-08-25 전후 예상)용 계획 — Domain+Difficulty 이중 라우팅 캐스케이드 프로토타입
+
+**배경**: Ceiling V1/V2가 이미 작동함을 보인 것만으로는 최종 발표에서 "그래서 뭐가 되는가"가 약하다는 문제의식. PC1(일반 실력 축, 17번 섹션에서 발견)을 "제거해야 할 confound"가 아니라 "명시적 게이트로 쓰면 유용한 신호"로 재해석하는 Dual-Tier 아이디어(17번 섹션 후속 아이디어)를 실제로 작게 구현해서 캡스톤으로 제시하기로 함. 새 데이터/API 비용 없이 기존 자원만으로 구현 가능.
+
+**설계 (사용자 확정, 2026-08-11)**:
+
+1. **도메인 신호 (벡터, latent space 코사인 유사도, 학습 불필요)**:
+   ```
+   domain_score(쿼리, 모델) = cosine_sim( encoder(쿼리), domain_FP[모델] )
+   ```
+   기존 query encoder(MiniLM+projection, 이미 훈련됨) + Ceiling V2류 도메인 FP를 그대로 재사용. 별도의 "도메인 라벨" 분류 단계 없이, 모델 20개 각각에 대한 연속적 적합도 점수로 바로 계산.
+
+2. **난이도 신호 (스칼라, 도메인과 orthogonal, 양자화 없이 연속값, 학습 불필요)**:
+   ```
+   difficulty(쿼리) = Σ w_i · domain_normalized_difficulty(probe_i),  w_i ∝ cosine_sim(encoder(쿼리), encoder(probe_i))
+   ```
+   도메인 신호와 **완전히 같은 kNN 가중평균 메커니즘**을 재사용 — 비교 대상만 "모델"에서 "이미 난이도를 아는 probe들"로 바뀜. `domain_normalized_difficulty`는 카테고리별 population 평균 정답률(pop_ease)을 카테고리 내에서 z-score 정규화한 값(16.x/17.x 섹션에서 발견한 probe-selection bias/subgroup distortion과 같은 이유로, 카테고리 간 난이도 베이스라인 차이가 신호에 안 섞이게 함).
+   - MLP 기반 text-to-scalar 회귀도 검토했으나 기각: 학습 파이프라인이 추가로 필요하고(Colab GPU 필요, 튜닝/검증 부담), 2주 타임라인에 부담. kNN 방식은 기존 `knn_test_lite20.py`의 가중평균 로직을 거의 그대로 재사용 가능하고 로컬에서 즉시 실행 가능.
+   - **사용자가 명시한 우려(2026-08-11)**: 이 kNN 난이도 추정의 정확도는 결국 "이웃 probe들의 난이도 라벨이 얼마나 정확한가"에 크게 좌우됨 — 구현 시 이 라벨 신뢰도를 어떻게 확보/검증할지가 미해결 과제로 남음.
+
+### 19.7 domain_score용 query encoder 학습 -- 1차 트라이얼 결과 (2026-08-11, 같은 세션 후반)
+
+**로컬 GPU 사용 가능으로 확인됨**(GTX 1650 Ti, 4GB VRAM, CUDA 12.5) -- 이전 세션들의 "학습은 Colab GPU로" 방침은 이 특정 노트북 한정으로는 완화됨. torch(cu121)+transformers 로컬 설치 완료.
+
+**학습 목표 설계 (GRPO 스타일)**: 원래 CSCR류처럼 raw 성공/실패(0/1) 라벨로 contrastive 학습시키면 PC1(난이도/일반실력) 오염이 재발할 위험이 있어 채택 안 함. 대신 **쿼리별로 20개 모델 점수를 그 쿼리 안에서 mean-center + std로 정규화**(`(score - query_mean) / (query_std + eps)`, GRPO의 group-relative advantage와 동일 원리 -- 그룹 평균을 baseline으로 써서 별도 난이도 추정 없이 난이도 성분을 상쇄)한 값을 타겟으로 사용. 목표: `cosine_sim(encoder(쿼리), domain_FP[모델])`가 이 GRPO 타겟을 예측하도록 MSE로 projection head만 학습(MiniLM 백본은 얼림, domain_FP도 고정 앵커).
+
+**스크립트**: `scripts/llmrouterbench/train_domain_encoder_trial.py`. `src/router/query_encoder.py`의 `QueryEncoder`를 import하지 않고 인라인 복사해서 씀(`router/__init__.py`가 faiss/matplotlib 등 무관한 무거운 의존성을 전부 끌고 옴 -- 다음에 정식 버전 만들 때는 이 import 체인부터 가볍게 정리할 것).
+
+**1차 소규모 트라이얼**(3000 쿼리 서브셋, 3 epoch): holdout(450개 중 유효 399개) mean per-query Spearman rho = **0.2963**(std=0.254) -- 방향성 검증 목적 달성, 실제로 유의미한 양의 신호 확인.
+
+**2차 확대 트라이얼**(Set A 전체 12,426 쿼리, train 10,563/holdout 1,863, 10 epoch 계획) epoch별 결과:
+
+| epoch | train MSE | holdout rho |
+|---|---|---|
+| 1 | 0.7603 | 0.3253 |
+| 2 | 0.7371 | **0.3338 (peak)** |
+| 3 | 0.7203 | 0.3310 |
+| 4 | 0.7049 | 0.3280 |
+| 5 | 0.6904 | 0.3067 |
+
+**epoch 2에서 정점 찍고 이후 하락 -- train MSE는 계속 감소하는데 holdout rho는 떨어지는 전형적 과적합 패턴 확인, epoch 5에서 사용자 판단으로 중단(프로세스 kill, PID 확인 후 PowerShell Stop-Process).** 스크립트가 맨 마지막에만 저장하는 구조라(중간 epoch 저장 안 함) 이번 실행은 **저장된 체크포인트가 없음** -- 중단 시점까지 아무 산출물도 안 남음.
+
+**해석 참고치**: rho=0.33 수준은 절대적으로는 "약함~중간" 경계지만(교과서 기준), 이 프로젝트에서 나온 다른 descriptor-alignment 비교(v1.2: rho=0.32~0.43, Logit/Perplexity vs Capability: rho≈-0.25~0)와 비교하면 상당히 준수한 축에 속함. 다만 타겟 자체가 쿼리당 20개 raw 0/1 점수에서 나온 거라 원래 노이즈가 많아 상한선 자체가 1.0보다 훨씬 낮을 것으로 추정(정확한 상한선 미검증).
+
+**다음 세션에서 반드시 고칠 것**:
+1. **매 epoch마다(혹은 best-rho 갱신 시마다) 체크포인트 저장** -- 지금처럼 맨 끝에만 저장하면 이번처럼 조기 종료 시 전부 유실됨. best-epoch 저장 로직 추가 필수.
+2. 위 결과 기준 **epoch 2 근처가 최적**으로 보임 -- 다음 실행은 처음부터 `N_EPOCHS=3~4` 정도로 줄이고, 매 epoch 저장하면서 best만 남기는 방식으로.
+3. `router/__init__.py` 무거운 import 체인 문제 -- `QueryEncoder`를 별도 경량 모듈로 분리하거나, 인라인 버전을 정식 위치로 승격하는 것 검토.
+4. 이 encoder가 실제로 준비되면, 19.5의 캐스케이드 라우터 프로토타입(domain_score 계산 부분)에 바로 연결.
+   - (참고, 17.x번 섹션 관련) 모델 측 "난이도 내성" 스칼라는 easy/hard tertile 격차(slope)가 아니라 **그냥 raw 평균 레벨**을 쓸 것 — PCA 체크에서 slope-PC1과 generic capability의 상관이 0.915로 사실상 같은 축임을 확인했으므로(같은 세션, 미기록 상세는 대화 로그 참고), 별도 축으로 취급할 근거가 없음.
+
+3. **캐스케이드 결정 로직**: 모델을 비용 오름차순 정렬 → domain_score + difficulty 조건을 둘 다 통과하는 **가장 싼 모델**을 순서대로 탐색해 선택 → 아무도 통과 못 하면 최강 모델로 escalate. 기존 kNN/MLP 라우팅(전 모델 비교 후 argmax/가중평균)과는 다른, 순차적 threshold 방식.
+
+**다음 세션에서 할 일**: 위 설계를 실제로 구현 — (a) 도메인 코사인 유사도 계산 파이프라인, (b) 난이도 kNN 추정기, (c) 캐스케이드 결정 로직, (d) Set B로 "비용 절감 vs 정확도 손실" 정량 평가. 플래그십 확장(9/22 카테고리는 이미 무료로 존재, 나머지 13개는 멀티 프로바이더 API 비용 필요 — 별도 판단 보류 중)과 V1.3 스케일업은 이번 최종 발표 스코프에서 명시적으로 제외.
+
+### 19.6 domain_score용 query encoder 재사용 여부 (확인 필요, 미해결)
+
+domain_score(쿼리, 모델) = cosine_sim(encoder(쿼리), domain_FP[모델])의 `encoder`는 순수 임베딩이 아니라 학습된 projection head(`QueryEncoder.proj`, MiniLM 위에 얹은 것) — 이 학습 자체는 새로 설계할 필요 없이 기존 스크립트(`full_loo_lite20_categoryrate.py`의 `loo.train_fold`)를 그대로 재사용 가능함을 확인.
+
+**단, 저장된 체크포인트는 전부 LOO fold용**(`train_fold(pool_19, ...)` — 매 fold마다 모델 1개씩 빼고 19개로 학습, 20개 fold가 각각 다른 헤드) — "20개 모델을 전부 아는 하나의 헤드"는 현재 없을 가능성이 높음. 캐스케이드 프로토타입은 unseen 시뮬레이션이 아니라 실제 20개 풀 전체를 다루는 거라, **held-out 없이 20개 전부로 딱 1번** 같은 스크립트로 학습 필요(20-fold 재학습 아님, 기존 프로젝트 관행상 이 정도 학습은 가볍다고 판단됨 — 13번 섹션 참고). 다음 세션에서 기존 체크포인트 디렉토리 확인 후, 없으면 이 1회 학습부터 진행할 것.

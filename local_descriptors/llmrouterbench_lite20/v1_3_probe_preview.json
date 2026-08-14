@@ -1,0 +1,398 @@
+[
+  {
+    "dataset": "aime",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "The 9 members of a baseball team went to an ice cream parlor after the"
+  },
+  {
+    "dataset": "aime",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "An isosceles trapezoid has an inscribed circle tangent to each of its "
+  },
+  {
+    "dataset": "aime",
+    "rank": 3,
+    "var": 0.247,
+    "preview": "Find the sum of all positive integers $ n $ such that $ n + 2 $ divide"
+  },
+  {
+    "dataset": "arcc",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "It was once thought that living organisms could come from non-living m"
+  },
+  {
+    "dataset": "arcc",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "A science student notices that the contents of one of the test tubes i"
+  },
+  {
+    "dataset": "arcc",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "A student is using a straw to blow bubbles into a calcium hydroxide so"
+  },
+  {
+    "dataset": "arenahard",
+    "rank": 1,
+    "var": 0.247,
+    "preview": "\"Before answering the following question, please engage in the followi"
+  },
+  {
+    "dataset": "arenahard",
+    "rank": 2,
+    "var": 0.232,
+    "preview": "Make those song lyrics rhyme:  The wind blew the cap off my head, I wa"
+  },
+  {
+    "dataset": "arenahard",
+    "rank": 3,
+    "var": 0.232,
+    "preview": "写一本中国玄幻小说的剧本"
+  },
+  {
+    "dataset": "arenahard_coding",
+    "rank": 1,
+    "var": 0.2,
+    "preview": "Star Trek Holodeck Battle Simulation  Could you engage in a Star Trek "
+  },
+  {
+    "dataset": "arenahard_coding",
+    "rank": 2,
+    "var": 0.182,
+    "preview": "I have a random exception in my C++ MFC application. Sometimes during "
+  },
+  {
+    "dataset": "arenahard_coding",
+    "rank": 3,
+    "var": 0.163,
+    "preview": "                 Object.keys(row).filter((key) => key !== \"id\").map((k"
+  },
+  {
+    "dataset": "arenahard_creative_writing",
+    "rank": 1,
+    "var": 0.222,
+    "preview": "viết cho tôi một lời quảng cáo về tư vấn sự kiện của Truyền thông JIN "
+  },
+  {
+    "dataset": "arenahard_creative_writing",
+    "rank": 2,
+    "var": 0.222,
+    "preview": "Fais moi un poème qui parle de toi en introduisant ton nom."
+  },
+  {
+    "dataset": "arenahard_creative_writing",
+    "rank": 3,
+    "var": 0.21,
+    "preview": "Understand the scenario and act and reply accordingly and very smartly"
+  },
+  {
+    "dataset": "arenahard_math",
+    "rank": 1,
+    "var": 0.227,
+    "preview": ".- Un banco está entregando un crédito en 8 cuotas semestrales a una t"
+  },
+  {
+    "dataset": "arenahard_math",
+    "rank": 2,
+    "var": 0.223,
+    "preview": "1. What is the smallest integer on the number line such that its squar"
+  },
+  {
+    "dataset": "arenahard_math",
+    "rank": 3,
+    "var": 0.212,
+    "preview": "def lcm(nums):           Least Common Multiple Given a list of integer"
+  },
+  {
+    "dataset": "bbh",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "Alice, Bob, Claire, Dave, Eve, Fred, and Gertrude are on the same team"
+  },
+  {
+    "dataset": "bbh",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "\"Some football fans admire various clubs, others love only a single te"
+  },
+  {
+    "dataset": "bbh",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "Today is the palindrome day of 2020, because the MMDDYYYY format of th"
+  },
+  {
+    "dataset": "emorynlp",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "Given a conversation history and a current utterance, follow these ste"
+  },
+  {
+    "dataset": "emorynlp",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "Given a conversation history and a current utterance, follow these ste"
+  },
+  {
+    "dataset": "emorynlp",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "Given a conversation history and a current utterance, follow these ste"
+  },
+  {
+    "dataset": "finqa",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "what is the total amount , in millions of dollars , outstanding in 200"
+  },
+  {
+    "dataset": "finqa",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "what is the estimated percentage of revolving credit facility in relat"
+  },
+  {
+    "dataset": "finqa",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "what percent lower is the carrying value than the fair value?"
+  },
+  {
+    "dataset": "gpqa",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "Calculate the eigenvector of a quantum mechanical operator $\\vec{P}$ f"
+  },
+  {
+    "dataset": "gpqa",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "Let there be a diatomic molecule, with elements X and Y, that can be m"
+  },
+  {
+    "dataset": "gpqa",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "Let us assume stars are uniformly distributed in the sky. In this scen"
+  },
+  {
+    "dataset": "humaneval",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "from typing import List, Tuple   def find_closest_elements(numbers: Li"
+  },
+  {
+    "dataset": "humaneval",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "  def pairs_sum_to_zero(l):     \"\"\"     pairs_sum_to_zero takes a list"
+  },
+  {
+    "dataset": "humaneval",
+    "rank": 3,
+    "var": 0.25,
+    "preview": " def any_int(x, y, z):     '''     Create a function that takes 3 numb"
+  },
+  {
+    "dataset": "kandk",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "A very special island is inhabited only by knights and knaves. Knights"
+  },
+  {
+    "dataset": "kandk",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "A very special island is inhabited only by knights and knaves. Knights"
+  },
+  {
+    "dataset": "kandk",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "A very special island is inhabited only by knights and knaves. Knights"
+  },
+  {
+    "dataset": "korbench",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "In How To Train Your Dragon, which statement about hunting and killing"
+  },
+  {
+    "dataset": "korbench",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "Now we make a little change to the rule: when a is a multiple of b, a "
+  },
+  {
+    "dataset": "korbench",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "\"Sociology is a comprehensive discipline that studies social relations"
+  },
+  {
+    "dataset": "livecodebench",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "There are N types of elements numbered 1, 2, \\ldots, N. Elements can b"
+  },
+  {
+    "dataset": "livecodebench",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "You are given an integer n representing the number of houses on a numb"
+  },
+  {
+    "dataset": "livecodebench",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "There is a stack of 100 cards, each labeled with the integer 0. Proces"
+  },
+  {
+    "dataset": "livemathbench",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "Suppose $A$, $B$, and $C$ are points in the plane with $AB=40$ and $AC"
+  },
+  {
+    "dataset": "livemathbench",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "Given $(ax-1)^2(2x-1)^3=a_0+a_1x+a_2x^2+a_3x^3+a_4x^4+a_5x^5$. If $a_0"
+  },
+  {
+    "dataset": "livemathbench",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "Let $F_1$, $F_2$ be the foci of the ellipse $\\Omega$. Take a point $P$"
+  },
+  {
+    "dataset": "math500",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "Tom got a Mr. Potato Head for his birthday. It came with 3 hairstyles,"
+  },
+  {
+    "dataset": "math500",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "Find the degree measure of the least positive angle $\\theta$ for which"
+  },
+  {
+    "dataset": "math500",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "What is the number of square centimeters in the area of this trapezoid"
+  },
+  {
+    "dataset": "mathbench",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "The planet Mercury travels in an elliptical orbit with eccentricity 0."
+  },
+  {
+    "dataset": "mathbench",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "What is the largest order of an element in the group of permutations o"
+  },
+  {
+    "dataset": "mathbench",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "Let K be a nonempty subset of R^n, where n > 1. Which of the following"
+  },
+  {
+    "dataset": "mbpp",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "Write a python function to count all the substrings starting and endin"
+  },
+  {
+    "dataset": "mbpp",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "Write a function to repeat the given tuple n times."
+  },
+  {
+    "dataset": "mbpp",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "Write a function that matches a word containing 'z', not at the start "
+  },
+  {
+    "dataset": "medqa",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "A 12-year-old girl is brought to your psychiatry office by her parents"
+  },
+  {
+    "dataset": "medqa",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "A 14-year-old teenager presents to his pediatrician complaining of fre"
+  },
+  {
+    "dataset": "medqa",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "A 13-year-old boy presents to the emergency department with severe kne"
+  },
+  {
+    "dataset": "meld",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "Given a conversation history and a current utterance, follow these ste"
+  },
+  {
+    "dataset": "meld",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "Given a conversation history and a current utterance, follow these ste"
+  },
+  {
+    "dataset": "meld",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "Given a conversation history and a current utterance, follow these ste"
+  },
+  {
+    "dataset": "mmlupro",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "A convergent lens of refractive power + 15.00dioptersis to be used as "
+  },
+  {
+    "dataset": "mmlupro",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "In a motor the armature resistance is 0.1 ohm. When connected across 1"
+  },
+  {
+    "dataset": "mmlupro",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "A 42-year-old man comes to the physician for a follow-up examination 1"
+  },
+  {
+    "dataset": "winogrande",
+    "rank": 1,
+    "var": 0.25,
+    "preview": "Jessica asked Rebecca to go see a new horror movie even though _ knew "
+  },
+  {
+    "dataset": "winogrande",
+    "rank": 2,
+    "var": 0.25,
+    "preview": "Adam was a crook and not a law-abiding citizen like Joseph, so it was "
+  },
+  {
+    "dataset": "winogrande",
+    "rank": 3,
+    "var": 0.25,
+    "preview": "Ben had to drain both water and oil down the sink, but the _ was too f"
+  }
+]

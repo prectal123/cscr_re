@@ -1,0 +1,22 @@
+{
+ "R01": "Llama-3.1-8B-Instruct",
+ "R02": "gemma-2-9b-it",
+ "R03": "granite-3.3-8b-instruct",
+ "R04": "Llama-3.1-8B-UltraMedical",
+ "R05": "Qwen3-8B",
+ "R06": "Intern-S1-mini",
+ "R07": "Qwen2.5-Coder-7B-Instruct",
+ "R08": "OpenThinker3-7B",
+ "R09": "Fin-R1",
+ "R10": "internlm3-8b-instruct",
+ "R11": "MiMo-7B-RL-0530",
+ "R12": "MiniCPM4.1-8B",
+ "R13": "Llama-3.1-Nemotron-Nano-8B-v1",
+ "R14": "DeepHermes-3-Llama-3-8B-Preview",
+ "R15": "GLM-Z1-9B-0414",
+ "R16": "cogito-v1-preview-llama-8B",
+ "R17": "glm-4-9b-chat",
+ "R18": "DeepSeek-R1-0528-Qwen3-8B",
+ "R19": "DeepSeek-R1-Distill-Qwen-7B",
+ "R20": "NVIDIA-Nemotron-Nano-9B-v2"
+}

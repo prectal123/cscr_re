@@ -1,0 +1,54 @@
+{
+  "unseen_instances": [
+    {
+      "seed": 0,
+      "model": "CultriX__NeuralTrix-bf16",
+      "selection_count": 229,
+      "hit_rate_when_chosen": 0.49344978165938863
+    },
+    {
+      "seed": 0,
+      "model": "Neko-Institute-of-Science__metharme-7b",
+      "selection_count": 7,
+      "hit_rate_when_chosen": 0.14285714285714285
+    },
+    {
+      "seed": 0,
+      "model": "deepseek-ai__deepseek-math-7b-instruct",
+      "selection_count": 752,
+      "hit_rate_when_chosen": 0.35106382978723405
+    },
+    {
+      "seed": 0,
+      "model": "meta-math__MetaMath-Llemma-7B",
+      "selection_count": 368,
+      "hit_rate_when_chosen": 0.1793478260869565
+    },
+    {
+      "seed": 1,
+      "model": "fblgit__UNA-SimpleSmaug-34b-v1beta",
+      "selection_count": 2,
+      "hit_rate_when_chosen": 1.0
+    },
+    {
+      "seed": 1,
+      "model": "meta-math__MetaMath-Llemma-7B",
+      "selection_count": 255,
+      "hit_rate_when_chosen": 0.20784313725490197
+    },
+    {
+      "seed": 2,
+      "model": "CultriX__NeuralTrix-bf16",
+      "selection_count": 184,
+      "hit_rate_when_chosen": 0.532608695652174
+    },
+    {
+      "seed": 2,
+      "model": "cognitivecomputations__yayi2-30b-llama",
+      "selection_count": 54,
+      "hit_rate_when_chosen": 0.2962962962962963
+    }
+  ],
+  "spearman_rho": -0.2380952380952381,
+  "spearman_p": 0.5701563208157683
+}

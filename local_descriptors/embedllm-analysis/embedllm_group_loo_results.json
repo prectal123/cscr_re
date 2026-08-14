@@ -1,0 +1,41 @@
+[
+  {
+    "seed": 0,
+    "overall_hit_rate": 0.5596666666666666,
+    "n_seen": 90,
+    "n_unseen": 22,
+    "pool_unseen_share": 0.19642857142857142,
+    "unseen_selection_rate": 0.452,
+    "seen_selection_rate": 0.548,
+    "unseen_hit_rate_when_chosen": 0.3274336283185841,
+    "seen_hit_rate_when_chosen": 0.7512165450121655,
+    "n_chose_unseen": 1356,
+    "n_chose_seen": 1644
+  },
+  {
+    "seed": 1,
+    "overall_hit_rate": 0.648,
+    "n_seen": 90,
+    "n_unseen": 22,
+    "pool_unseen_share": 0.19642857142857142,
+    "unseen_selection_rate": 0.08566666666666667,
+    "seen_selection_rate": 0.9143333333333333,
+    "unseen_hit_rate_when_chosen": 0.2140077821011673,
+    "seen_hit_rate_when_chosen": 0.6886620488516223,
+    "n_chose_unseen": 257,
+    "n_chose_seen": 2743
+  },
+  {
+    "seed": 2,
+    "overall_hit_rate": 0.63,
+    "n_seen": 90,
+    "n_unseen": 22,
+    "pool_unseen_share": 0.19642857142857142,
+    "unseen_selection_rate": 0.07933333333333334,
+    "seen_selection_rate": 0.9206666666666666,
+    "unseen_hit_rate_when_chosen": 0.4789915966386555,
+    "seen_hit_rate_when_chosen": 0.6430123099203475,
+    "n_chose_unseen": 238,
+    "n_chose_seen": 2762
+  }
+]
