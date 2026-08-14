@@ -1,0 +1,55 @@
+{
+  "note": "Partial snapshot saved after seed 3 completed, while seed 4 was still running -- see newllm_grpo_multiseed_results.json for the full 5-seed run once it finishes (that file may supersede this one, this one is a fixed checkpoint of seeds 0-3 as observed at save time).",
+  "cscr_paper_reference": {"audc": 0.4848, "peak": 0.565},
+  "method": "GRPO-style mean-centered regression (per-query, per-model relative advantage), PCA-5 Ceiling FP, per-epoch holdout-rho best-checkpoint selection out of 10 epochs, EmbedLLM 2/3-seen/1/3-unseen protocol",
+  "results": [
+    {
+      "seed": 0,
+      "best_epoch": 3,
+      "best_holdout_rho": 0.1938,
+      "knn": {"audc": 0.5269, "qnc": 0.961, "peak": 0.5673},
+      "random": {"audc": 0.3787, "peak": 0.4160},
+      "beats_cscr_audc": true,
+      "beats_cscr_peak": true
+    },
+    {
+      "seed": 1,
+      "best_epoch": 6,
+      "best_holdout_rho": 0.1672,
+      "knn": {"audc": 0.4661, "peak": 0.4747},
+      "random": {"audc": 0.3869, "peak": 0.4270},
+      "beats_cscr_audc": false,
+      "beats_cscr_peak": false
+    },
+    {
+      "seed": 2,
+      "best_epoch": 8,
+      "best_holdout_rho": 0.1571,
+      "knn": {"audc": 0.4492, "peak": 0.4660},
+      "random": {"audc": 0.3721, "peak": 0.4070},
+      "beats_cscr_audc": false,
+      "beats_cscr_peak": false
+    },
+    {
+      "seed": 3,
+      "best_epoch": 7,
+      "best_holdout_rho": 0.1631,
+      "knn": {"audc": 0.4666, "peak": 0.4850},
+      "random": {"audc": 0.3820, "peak": 0.4067},
+      "beats_cscr_audc": false,
+      "beats_cscr_peak": false
+    }
+  ],
+  "summary_seeds_0to3": {
+    "mean_audc": 0.4772,
+    "mean_peak": 0.4983,
+    "n_beating_cscr_audc": 1,
+    "n_total": 4
+  },
+  "comparison_reference_contrastive_2epoch": {
+    "audc_by_seed": [0.4731, 0.4485, 0.5094, 0.4825, 0.4265],
+    "mean_audc": 0.468,
+    "std_audc": 0.029,
+    "n_beating_cscr_audc": 1
+  }
+}
