@@ -5,9 +5,11 @@
 
 ---
 
-## 0. TL;DR — 2026-08-11 세션 종료 시점, 다음은 여기서부터 (최신)
+## 0. TL;DR — 2026-08-14 세션 종료 시점, 다음은 여기서부터 (최신)
 
-**가장 최근 세션 요약은 19번 섹션(V1.3 LLM-judge 시도 → probe-count ablation 진단 → domain+difficulty 이중 라우팅 설계) 참고.** 그 이전 세션 요약은 17번 섹션(LOO unseen-model 실험) 참고, EmbedLLM pool 규격화/v1.2 프로토타입은 18번 섹션 참고(별도 세션에서 병행 진행됨).
+**가장 최근 세션 요약은 20번 섹션(EmbedLLM 규모 "new LLMs" 프로토콜로 논문 Table 2와 직접 비교, GRPO 회귀 방식 검증) 참고 — 이 세션은 커밋만 되고 PROGRESS.md 서술이 누락돼 있던 걸 2026-08-15에 뒤늦게 정리함.** 그 이전은 19번 섹션(V1.3 LLM-judge 시도 → probe-count ablation 진단 → domain+difficulty 이중 라우팅 설계) 참고. 17번 섹션(LOO unseen-model 실험) 이전, EmbedLLM pool 규격화/v1.2 프로토타입은 18번 섹션 참고(별도 세션에서 병행 진행됨).
+
+**20번 섹션 한 줄 요약**: EmbedLLM(112개 모델) 규모, 논문의 실제 "new LLMs" 프로토콜(2/3 seen/1/3 unseen)로 CSCR 논문 Table 2(AUDC=0.4848)와 처음으로 직접 비교. GRPO 스타일 회귀 방식이 **seed 0에서는 논문을 이겼지만(AUDC 0.527)**, seed 1~3 추가하니 전부 논문보다 낮게 나와서 **4-seed 평균 AUDC=0.4772로 논문과 거의 대등(근소 열세)** — "단일 시드로 결론 내리면 안 된다"는 이 프로젝트의 반복된 교훈이 또 재현됨. kNN(학습 없음) 검증은 3-seed 전부 유의(Ceiling FP PCA-5 vs uniform, p<0.02) — EmbedLLM 규모에서도 신호 자체는 확인됨. Seed 4는 컴퓨터를 꺼야 해서 중단, 미완료.
 
 **19번 섹션 한 줄 요약**: (1) Claude Sonnet 5를 통합 judge로 쓰는 V1.3 FP를 시도했으나(66 probe, 22카테고리×3, $2.85) kNN에서 Ceiling V2에 유의하게 패배(delta=-0.0196, p=0.0067). (2) 원인을 무료 GT 기반 probe-count ablation으로 진단: N=3/카테고리는 **완벽한 채점자(GT)를 써도** 유의성 미달(p=0.086), 유의성은 N=6~8부터 확보됨 — judge 품질이 아니라 표본 크기 문제였음을 확정. (3) "judge가 GT를 얼마나 잘 흉내내는가"는 인접 연구주제로 스코프 아웃 결정. (4) 최종 발표(2주 후)용으로 domain(FP latent space 코사인 유사도, 학습 불필요)+difficulty(도메인-정규화 스칼라, probe 최근접이웃 가중평균, 학습 불필요) 이중 신호 기반 캐스케이드 라우터 프로토타입을 설계, 다음 세션에서 구현 예정. 핵심: (1) RouterBench(11개 모델)가 너무 작아서 collapse가 생기는지 확인하려고 **LLMRouterBench**(33개 모델, 22개 태스크 카테고리 확보 가능)로 pool을 3배 확장 — parametric LOO는 여전히 유의미한 개선 없음, pool 크기 자체는 원인이 아님을 확인. (2) probe 선정이 flagship/lightweight tier gap에 지배당하는 버그 발견 → **flagship 13개를 아예 제외하고 lightweight 20개 모델로 피벗**(22개 카테고리 전부 확보). (3) PCA로 Ceiling FP를 분해해서 **핵심 메커니즘 규명**: 신호의 28.5%가 "이 모델이 전반적으로 얼마나 센가"라는 단일 coarse 축이고, 이걸 제거하면 성능이 완전히 붕괴함 — Ceiling이 세밀한 도메인 매칭이 아니라 이 coarse 축 덕분에 이겼다는 뜻. (4) **카테고리 단위로 집계한(개별 probe 아닌) Ceiling FP(Ceiling V2)**가 uniform/Perplexity/기존 Ceiling(V1) 셋 다 유의미하게 이기는 첫 깨끗한 승리 기록. (5) lightweight-20 pool의 **parametric LOO에서도 Ceiling V1이 Perplexity를 유의미하게 이김**(3-시드 평균 delta+0.109, p=0.0024로 확정) — 33개 풀에서는 안 됐던 게, tier gap을 없애니 실제 학습 단계에서도 처음으로 재현됨. (6) 33개 풀에서 Ceiling FP의 지배축이 사실상 tier(플래그십/경량) 분리축임을 직접 확인 → **"Dual-Tier 라우팅"(coarse 축=tier 게이트, 나머지=tier 내부 도메인 매칭) 후속 연구 아이디어 도출, 검증에는 EmbedLLM 규모 필요.** (7) V1/V2 둘 다 multi-seed(3개) 확정 완료 — V2가 방향상 V1보다 약간 우세하나 유의수준 미달(p=0.083), 둘 다 Perplexity는 확실히 이김. Random FP(순수 노이즈) negative control로 파이프라인 자체엔 편향 없음 확인. (8) 특정 6개 모델("reasoning-RL 클러스터")이 V1/V2/Perplexity 전부에서 AUC가 나쁜 이유를 추적 → **probe 선정 편향 발견**: 고분산 probe 528개만 보면 이 그룹 간 격차가 전체 모집단(19%p)의 2배 이상(41%p)으로 과장돼 있었음 — mean-centering이 못 잡는 새로운 종류의 confound. **다음 할 일: 발표 자료 작성 시작(17.14의 future-work 결론 포함), 여유 되면 EmbedLLM 자원 확보/Dual-Tier 설계.**
 
@@ -1092,3 +1094,148 @@ N=24 결과(+0.0138, p=0.0225)가 기존에 발표했던 Pseudo Ceiling 수치(+
 domain_score(쿼리, 모델) = cosine_sim(encoder(쿼리), domain_FP[모델])의 `encoder`는 순수 임베딩이 아니라 학습된 projection head(`QueryEncoder.proj`, MiniLM 위에 얹은 것) — 이 학습 자체는 새로 설계할 필요 없이 기존 스크립트(`full_loo_lite20_categoryrate.py`의 `loo.train_fold`)를 그대로 재사용 가능함을 확인.
 
 **단, 저장된 체크포인트는 전부 LOO fold용**(`train_fold(pool_19, ...)` — 매 fold마다 모델 1개씩 빼고 19개로 학습, 20개 fold가 각각 다른 헤드) — "20개 모델을 전부 아는 하나의 헤드"는 현재 없을 가능성이 높음. 캐스케이드 프로토타입은 unseen 시뮬레이션이 아니라 실제 20개 풀 전체를 다루는 거라, **held-out 없이 20개 전부로 딱 1번** 같은 스크립트로 학습 필요(20-fold 재학습 아님, 기존 프로젝트 관행상 이 정도 학습은 가볍다고 판단됨 — 13번 섹션 참고). 다음 세션에서 기존 체크포인트 디렉토리 확인 후, 없으면 이 1회 학습부터 진행할 것.
+
+---
+
+## 20. EmbedLLM 규모로 논문 Table 2와 직접 비교 + GRPO 회귀 방식 검증 (2026-08-14, 2026-08-15에 소급 정리)
+
+**⚠️ 기록 경위**: 이 세션은 2026-08-14에 커밋(`b867531`, `28281eb`)까지 됐지만 PROGRESS.md 본문 서술이 누락된 채로 남아있었음 — 결과 JSON 파일과 커밋 메시지만 존재하고 서사가 없는 상태였다가, 2026-08-15 세션에서 다시 pull 받은 뒤 발견해서 뒤늦게 정리함. 코드/데이터는 이미 git에 다 있었으므로 손실된 건 없음, 문서화만 밀렸던 것.
+
+### 20.1 배경 및 목표
+
+19.5~19.7(도메인+난이도 캐스케이드 설계, GRPO 스타일 회귀)까지의 아이디어를 MixInstruct/LLMRouterBench 소규모 pool이 아니라 **EmbedLLM(112개 모델, 80개 카테고리)** 규모에서 검증하고, 동시에 **CSCR 논문이 실제로 보고한 "new LLMs" 프로토콜**(전체 pool을 2/3 seen(훈련 시 아는 모델) / 1/3 unseen(훈련 후 새로 추가되는 모델)로 나눠 AUDC를 재는 방식, 논문 Table 2 AUDC=0.4848, Peak=0.565)로 **처음으로 논문 수치와 직접 비교**하는 실험.
+
+### 20.2 인프라 준비
+
+- **빠른 평가 하네스**: `run_audc_eval.py`를 그대로 쓰면 seed당 15~20분 걸리는데(모델 재로드가 λ마다 반복되는 구조, 13번 섹션에서 이미 지적했던 비효율), batch-encode + 결과 caching으로 재구현해서 seed당 **~40초**로 단축. 공식 스크립트 대비 AUDC 오차 ±0.004 이내로 검증 완료(`scripts/embedllm_newllm_fast_eval.py`).
+- **dtype 버그 발견+수정**: 논문 원본 `cost_spectrum_info_nce`(`scripts/train_query_encoder.py`)가 내부적으로 `~pos_mask`(비트단위 NOT)를 쓰는데, label을 float32로 넘기면 타입 에러/오동작 — EmbedLLM 규모에서 이 함수를 직접 재사용하려다 발견함. `label.bool()`로 넘기도록 수정(`scripts/embedllm_newllm_train_encoder_csinfonce.py:111-115`에 주석으로 기록). **결과에 영향 없음** — 버그가 있던 `neg_k` 변수는 그 함수 안에서 실제로 안 쓰이는 dead code라 순수 타입 호환성 수정임.
+- `.gitignore`에 `local_checkpoints/` 추가(재생성 가능한 모델 체크포인트, ~2.3GB — 이전 세션(13번 섹션)에서 손으로 slim 버전만 골라 커밋했던 것과 별개로, 이 세션부터는 아예 전체를 git 추적 대상에서 제외).
+
+### 20.3 kNN 검증(학습 없음) — Ceiling FP(PCA-5) vs uniform, EmbedLLM 규모
+
+`scripts/build_embedllm_ceiling_fp.py` + 그룹 홀드아웃 kNN 테스트, 3 seed, unseen 22개 모델:
+
+| seed | Ceiling FP rho | uniform rho | delta | p | 개선 |
+|---|---|---|---|---|---|
+| 0 | 0.664 | 0.643 | +0.0203 | 0.0174 | 12/22 |
+| 1 | 0.704 | 0.682 | +0.0215 | 0.0040 | 14/22 |
+| 2 | 0.639 | 0.612 | +0.0279 | 0.0026 | 18/22 |
+
+**3-seed 전부 유의** — 이전 소규모 pool(11~20개)보다 훨씬 안정적인 유의성. 80차원 전체와 PCA-5(80차원을 5차원으로 압축) 결과가 거의 동일(delta 소수점 4자리까지 일치) — **PCA-5가 원본 신호를 거의 다 담고 있음을 확인**, 이후 실험은 전부 PCA-5 기준으로 진행.
+
+### 20.4 Group LOO(contrastive, `multi_positive_info_nce`) — seen/unseen 격차 재확인
+
+`scripts/embedllm_group_loo.py`, seen 90개로만 학습 후 unseen 22개 포함 전체 pool에서 라우팅:
+
+| seed | overall hit rate | seen 선택 시 정답률 | unseen 선택 시 정답률 | unseen 선택 비율 |
+|---|---|---|---|---|
+| 0 | 56.0% | 75.1% | 32.7% | 45.2% |
+| 1 | 64.8% | 68.9% | 21.4% | 8.6% |
+| 2 | 63.0% | 64.3% | 47.9% | 7.9% |
+
+**예상된 패턴**: seen 모델을 골랐을 때 정답률(64~75%)이 unseen을 골랐을 때(21~48%)보다 항상 높음 — 학습 때 못 본 모델에 대한 판단이 구조적으로 더 약함. seed마다 unseen 선택 비율 자체가 크게 요동(45%→9%→8%) — 이것도 13~17번 섹션에서 반복 확인된 collapse/시드 불안정성의 연장선.
+
+### 20.5 GRPO 회귀 방식 — 논문 Table 2와 직접 비교, multi-seed (이 세션의 핵심 결과)
+
+`scripts/embedllm_newllm_grpo_train.py` + `embedllm_newllm_grpo_multiseed.py`: 19.7에서 설계한 GRPO 스타일(쿼리별 mean-center+std 정규화 타겟, MSE 회귀, per-epoch holdout-rho 기준 best-checkpoint 선택, 10 epoch 중 최적점 자동 선택) 방식을 그대로 EmbedLLM 2/3-seen/1/3-unseen 프로토콜에 적용.
+
+| seed | best epoch | holdout rho | AUDC | Peak | 논문(AUDC 0.4848) 대비 |
+|---|---|---|---|---|---|
+| 0 | 3 | 0.194 | **0.527** | 0.567 | **이김** (AUDC·Peak 둘 다) |
+| 1 | 6 | 0.167 | 0.466 | 0.475 | 짐 |
+| 2 | 8 | 0.157 | 0.449 | 0.466 | 짐 |
+| 3 | 7 | 0.163 | 0.467 | 0.485 | 짐 |
+| **4-seed 평균** | | | **0.477** | 0.498 | **4개 중 1개만 이김** |
+
+**seed 4는 실행 중 사용자가 컴퓨터를 꺼야 해서 중단 — 미완료.**
+
+**비교군**(contrastive, `cost_spectrum_info_nce` 2 epoch, 5 seed): mean AUDC=0.468, std=0.029, 5개 중 1개만 논문 이김. GRPO 회귀(0.477)가 contrastive(0.468)보다 근소하게 높지만 **이 차이 자체를 통계적으로 확정 지은 검정은 없음** — 방향만 참고할 것.
+
+**해석**: seed 0만 보면 "우리 방법이 논문을 이겼다"는 인상이 강하지만(AUDC +8.6%, Peak도 근소 우위), **4-seed 평균으로 보면 논문과 거의 대등한 수준(근소 열세)으로 수렴** — 15~17번 섹션에서 여러 차례 반복된 "단일 시드 결과를 과대 해석하지 말 것" 교훈이 이번에도 정확히 재현됨. 다만 긍정적으로 보면: **이 프로젝트에서 나온 모든 실험 중 논문이 보고한 수치에 가장 근접하게 붙은 결과**(대부분의 다른 실험은 논문 주장을 반박하거나 재현이 안 됐던 것과 대비됨) — EmbedLLM처럼 실제 pool 규모·다양성이 충분히 크면, 우리 방법(GRPO 회귀, capability-aligned FP)이 논문 수준의 성능에 근접할 수 있다는 긍정적 신호로 해석 가능.
+
+### 20.6 Ceiling FP probe 개수 ablation (N=6/12/24 probes/category) — 매우 불안정
+
+`scripts/embedllm_newllm_probe_sampling.py`, 각 N당 5 seed:
+
+| N | delta 부호/유의성 패턴(5 seed) |
+|---|---|
+| 6 | -0.112(ns) / +0.010(ns) / -0.064(ns) / **+0.020(p=0.025)** / -0.056(ns) |
+| 12 | +0.035(p<0.001) / +0.094(p<0.001) / NaN(계산 실패) / +0.105(p<0.001) / **-0.073(p=1.0, 역전)** |
+| 24 | **-0.102(p=1.0, 역전)** / +0.010(ns) / +0.109(p<0.001) / +0.037(p<0.001) / +0.043(p<0.001) |
+
+**N을 늘려도 안정성이 확보되지 않음** — 부호 자체가 세 그룹 모두에서 시드에 따라 자주 뒤집힘(N=24조차 seed 0에서 역전). 19.3(LLMRouterBench 규모)에서 확인한 "probe 개수를 늘리면 유의성이 확보된다"는 패턴이 EmbedLLM 규모/이 특정 ablation 설계에서는 깨끗하게 재현되지 않음 — **원인 미분석, 다음 세션 과제.** (seed 2의 N=12 NaN은 계산 오류로 추정, 원인 미확인.)
+
+### 20.7 Scale(모델 크기) 분석 — PC1=tier축 패턴, 훨씬 큰 표본으로 재확인
+
+`scripts/embedllm_scale_analysis.py`: EmbedLLM은 순수 오픈웨이트만 있어서(GPT-4/Claude 같은 독점 flagship 없음) "브랜드" 아닌 순수 **모델 크기(파라미터 수)** 축을 봄. 112개 중 98개 크기 파싱 성공, 중앙값(8B) 기준 대형/소형 50:48 분할.
+
+- **PC1(Ceiling FP 최상위 주성분)과 log(모델 크기)의 Spearman rho = -0.397, p=5.06e-5** — 17.6(LLMRouterBench, 33개 모델)에서 발견한 "PC1=전반적 실력/tier 축" 패턴이, 표본이 3배 이상 큰 EmbedLLM(112개)에서도 훨씬 강한 통계적 검정력으로 재확인됨.
+- 대형/소형 그룹 간극에 대한 순열검정(permutation test) percentile = 0.998 — 이 크기-실력 축 분리가 우연이 아님을 뒷받침.
+- PCA 차원 ablation(`pca_dim_ablation`): k=1(주성분 1개)만으로 이미 누적분산 87.8%, k=2로 91.4% — Ceiling FP의 정보 대부분이 극소수 축(사실상 PC1 하나)에 몰려있다는 17.6의 관찰이 이 규모에서도 그대로.
+
+### 20.8 Selection diagnostic — 결론 없음
+
+`scripts/embedllm_selection_diagnostic.py`: unseen 모델의 (선택 빈도) vs (선택됐을 때 정답률) 상관, rho=-0.238, p=0.57 — **통계적으로 무의미**, 뚜렷한 해석 없음. 다음 세션에서 우선순위 낮음.
+
+### 20.9 종합 정리 + 다음 할 일
+
+1. **긍정적 신호**: EmbedLLM 규모·GRPO 회귀 방식 조합이 이 프로젝트에서 논문 보고 수치에 가장 근접(4-seed 평균 AUDC 0.477 vs 논문 0.4848)했고, kNN 검증(20.3)은 3-seed 전부 깨끗하게 유의함 — capability-aligned FP 가설이 pool이 충분히 크고 다양하면 실제로 통한다는 이 프로젝트 전체의 결론(17.10)과 일관됨.
+2. **여전한 경고**: GRPO 회귀도 시드 의존성에서 자유롭지 않음(seed 0만 논문을 이김, probe-count ablation은 부호 자체가 요동) — "단일 시드/단일 설정으로 결론 내지 말 것"이라는 교훈이 이 스케일에서도 유효.
+3. **미완료 항목**:
+   - GRPO seed 4 (중단됨, 재실행 필요)
+   - Probe-count ablation의 불안정성 원인 분석 (20.6)
+   - Group LOO 결과(20.4)를 발표에 어떻게 쓸지 미정
+   - 19.5~19.7의 도메인+난이도 캐스케이드 라우터는 이 세션에서 진행 안 됨 — 여전히 다음 세션 과제로 남아있음(19번 섹션 참고).
+
+---
+
+## 21. Outlier-Drag 진단 및 해결 시도 (2026-08-15)
+
+**배경**: 20번 섹션의 GRPO 회귀가 여전히 시드마다 편차가 컸음(seed0=0.529, 나머지 3개는 0.45~0.47대). 사용자가 원인으로 "한 쿼리에 정답 모델이 여럿일 때, 그 advantage-가중 평균 타겟이 outlier 모델 때문에 흔들려서 빈 공간에 착탄하는 게 아닐까"라는 가설(outlier-drag)을 제기 — 이번 섹션은 이 가설의 진단과 두 가지 해결 시도를 다룸.
+
+### Observation (관찰)
+
+#### 21.1 Outlier-drag 현상 직접 확인
+`scripts/embedllm_outlier_blend_check.py` — GPU 없이 기존 FP·라벨 데이터만으로 검증. 학습 쿼리 5000개 샘플에서, "정답(양의 advantage) seen 모델들이 FP 공간에서 얼마나 흩어져 있는지(spread)"와 "그 advantage-가중 평균 타겟이 실제 존재하는 모델로부터 얼마나 먼가(dist_to_nearest_real)"의 관계를 측정.
+- **Spearman rho=0.52, p≈0** — spread가 넓을수록 타겟이 빈 공간에 착탄. spread 넓은 절반이 좁은 절반보다 착탄거리가 **2.24배** 더 멂.
+- 실제 사례: `deepseek-math-7b-instruct`(수학 특화 소형) + `falcon-40b-instruct`(범용 대형)처럼 성격이 다른 두 모델이 같은 쿼리에서 동시에 정답일 때, 블렌드 타겟이 실제 존재하는 어떤 모델로부터도 0.565만큼(전형적 모델간 거리 1.23의 거의 절반) 떨어진 빈 공간에 착탄.
+
+#### 21.2 Contrastive(softmax) 방식이 구조적으로 덜 취약함을 확인 — 그러나 그게 해법은 아니었음
+`scripts/embedllm_outlier_drag_loss_comparison.py` — 같은 5000개 쿼리에서, linear(MSE 회귀가 암묵적으로 향하는 방향) vs softmax(contrastive loss의 gradient가 수렴하는 fixed point, Weiszfeld류 반복으로 시뮬레이션) 두 집계 방식을 직접 비교.
+- softmax 집계가 linear보다 실제 모델에 **3.05배 더 가깝게** 착지(0.089 vs 0.271), 83.4%의 쿼리에서 더 정확(Wilcoxon p≈0).
+- 결정적으로 **rho(spread, 착탄거리)가 linear=+0.52 vs softmax=-0.11** — softmax는 positive set이 흩어져도 안 흔들림.
+- **하지만 "그럼 contrastive로 갈아타면 된다"는 결론은 아니었음**: 이미 존재하던 `multi_positive_info_nce`(순수 contrastive, `scripts/embedllm_newllm_train_encoder.py`) 결과를 `newllm_curves.pkl`에서 직접 재계산해보니 AUDC=0.4649로, GRPO(seed0=0.529, 4-seed 평균 0.477)보다 오히려 낮았음. Contrastive는 outlier-drag엔 안 취약하지만, 이 프로젝트 전체에서 반복 확인된 "하나의 지배적 모드로 스냅해버리는 collapse"(13~17번 섹션)라는 별개의 병을 그대로 앓고 있어서, 두 효과가 상쇄된 것으로 추정 — 그래서 MSE 회귀 틀은 유지하면서 outlier-drag만 고치는 방향으로 전환.
+
+#### 21.3 정답 모델이 여럿인 상황 자체가 매우 흔함
+카테고리 필터 구현 중 확인(21.5): 학습 쿼리 27,940개 중 **94.3%(26,355개)**가 seen 모델 2개 초과가 동시에 정답이었음 — "여러 정답 중 outlier가 낀다"는 상황이 드문 예외가 아니라 거의 항상 존재하는 조건이었음.
+
+### 해결 시도 (Fix attempts)
+
+#### 21.4 Min-over-positives (`scripts/embedllm_newllm_grpo_train_minpos.py`)
+MSE 회귀 틀은 유지하되, "여러 정답 모델의 평균에 맞추기"(AND) 대신 "그 중 지금 제일 가까운 하나만 맞으면 됨"(OR)으로 loss를 바꿈:
+```
+loss_pos = min_{m: t_m>0} (cos_sim(q,E_m) - t_m)²
+loss_neg = mean_{m: t_m<=0} (cos_sim(q,E_m) - t_m)²   (오답 쪽은 불변 — "전부"로부터 멀어져야 하니 AND 그대로)
+```
+**사용자가 사전에 제기한 우려**("winner-take-all 방식은 학습 중 '제일 가까운 쪽'이 계속 바뀌면서 불안정해질 수 있다" — Multiple Choice Learning 문헌에 알려진 문제)와 달리, 실제로는 매우 매끄럽게 수렴함(epoch-to-epoch |Δholdout_rho| 평균 0.004, epoch 2~3에서 정점).
+
+#### 21.5 카테고리 트랙레코드 필터링 (`scripts/embedllm_newllm_grpo_train_catfilter.py`, 사용자 아이디어)
+같은 쿼리에서 여러 모델이 동시에 정답이어도, 그 쿼리의 **카테고리에서 역대 성적(Set A 전체 기준 raw 정답률, `train.csv`의 `category` 컬럼 이용)이 Top-2인 모델만** 정답 타겟으로 인정하고, 나머지("우연히 얻어걸린" outlier 후보)는 loss에서 아예 제외(오답으로 flip하지 않음 — 실제로 맞혔으니).
+- **한계로 지적됨(사용자, 미해결)**: Top-K 고정 컷은 `[100%,95%,90%,89%,10%]` 같은 분포에서 90%·89%처럼 충분히 신뢰할 만한 모델까지 3등 밖이라는 이유로 잘라버릴 수 있음 — "1등 대비 상대적 격차(margin)"로 자르는 방식이 개선안으로 제안됐으나 아직 미구현.
+
+#### 21.6 Load-balancing은 기각됨 (참고용, 이번 섹션 이전 시도)
+`scripts/embedllm_newllm_grpo_train_balanced.py` + beta 스윕(0.05~1.0, `scripts/embedllm_newllm_grpo_beta_sweep.py`) — outlier-drag의 "증상"(라우팅 쏠림)만 억지로 펴는 방식으로 먼저 시도했으나, **어떤 beta 값에서도 AUDC와 선택-실제정확도 상관(rho) 둘 다 악화**됨(beta=0.05만으로도 rho 유의성 상실, p=0.012→0.25). 원인(타겟 구성 자체의 결함)을 안 고치고 결과(쏠림)만 펴면 약한 신호마저 흐트러진다는 것을 확인 — 21.1의 근본 원인 진단으로 이어진 계기.
+
+#### 21.7 Multi-seed 최종 비교
+`scripts/embedllm_newllm_grpo_variant_multiseed.py`, seed 0-3, EmbedLLM "new LLMs" 프로토콜(2/3 seen/1/3 unseen), CSCR 논문 Table 2 AUDC=0.4848 기준:
+
+| variant | seed0 | seed1 | seed2 | seed3 | 평균 | CSCR 이김 |
+|---|---|---|---|---|---|---|
+| GRPO 원본(20번 섹션) | 0.529 | 0.466 | 0.449 | 0.467 | 0.478 | 1/4 |
+| **min-pos** | 0.510 | 0.512 | 0.502 | 0.530 | **0.513** | **4/4** |
+| catfilter(Top-2) | 0.525 | 0.505 | 0.460 | 0.547 | 0.509 | 3/4 |
+
+**결론**: 두 수정 다 원본 대비 확실한 개선(+6.5~7.4%)이고, **min-pos가 성능·안정성 둘 다 우세**(4/4 전원 CSCR 이김, 스프레드 0.028로 원본의 1/3 이하). Outlier-drag 가설과 그 해결 방향이 실증적으로 검증됨. Category-filter는 평균은 비슷하나 seed2에서 CSCR한테 짐 — Top-K 고정 컷의 한계(21.5)와 관련 있을 가능성. (catfilter-seed3의 bootstrap 유의성 검정에서 NaN 발생, QNC도 1.92로 유독 높았음 — AUDC 값 자체는 정상 계산됐으나 그 시드의 비용 분포가 특이했을 가능성, 원인 미조사.)
+
+**다음 검증 후보**: catfilter를 margin 기반으로 개선, min-pos + category-filter 결합, all-seen(21.8) 결과와 종합.
+4. **문서화 프로세스 교훈**: 이번처럼 커밋은 됐는데 PROGRESS.md 서술이 누락되는 일이 재발하지 않도록, **작업 세션을 마칠 때 커밋 메시지에 적은 내용은 반드시 PROGRESS.md에도 같은 세션 안에서 옮겨 적을 것.**

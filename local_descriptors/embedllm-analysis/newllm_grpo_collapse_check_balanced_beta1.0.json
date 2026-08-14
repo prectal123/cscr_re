@@ -1,0 +1,226 @@
+{
+  "top3_share": 0.37633333333333335,
+  "chance_top3_share": 0.08571428571428572,
+  "n_models_used": 31,
+  "n_models_total": 35,
+  "spearman_rho_selection_vs_true_acc": 0.06556704150466174,
+  "spearman_p": 0.7082440070197202,
+  "most_selected_model": "microsoft__phi-2",
+  "most_selected_share": 0.171,
+  "most_selected_true_acc": 0.4046666666666667,
+  "highest_true_acc_model": "meta-llama__Meta-Llama-3-70B-Instruct",
+  "highest_true_acc": 0.605,
+  "highest_true_acc_model_share": 0.0016666666666666668,
+  "per_model": [
+    {
+      "model": "microsoft__phi-2",
+      "true_acc": 0.4046666666666667,
+      "selected_count": 513,
+      "selected_share": 0.171
+    },
+    {
+      "model": "bigscience__bloom-7b1",
+      "true_acc": 0.2833333333333333,
+      "selected_count": 334,
+      "selected_share": 0.11133333333333334
+    },
+    {
+      "model": "TheBloke__CodeLlama-70B-Instruct-AWQ",
+      "true_acc": 0.391,
+      "selected_count": 282,
+      "selected_share": 0.094
+    },
+    {
+      "model": "Qwen__Qwen1.5-32B-Chat",
+      "true_acc": 0.5173333333333333,
+      "selected_count": 274,
+      "selected_share": 0.09133333333333334
+    },
+    {
+      "model": "meta-llama__LlamaGuard-7b",
+      "true_acc": 0.328,
+      "selected_count": 225,
+      "selected_share": 0.075
+    },
+    {
+      "model": "Qwen__Qwen1.5-7B-Chat",
+      "true_acc": 0.43466666666666665,
+      "selected_count": 179,
+      "selected_share": 0.059666666666666666
+    },
+    {
+      "model": "CausalLM__34b-beta",
+      "true_acc": 0.579,
+      "selected_count": 177,
+      "selected_share": 0.059
+    },
+    {
+      "model": "dfurman__HermesBagel-34B-v0.1",
+      "true_acc": 0.5636666666666666,
+      "selected_count": 150,
+      "selected_share": 0.05
+    },
+    {
+      "model": "kevin009__llamaRAGdrama",
+      "true_acc": 0.455,
+      "selected_count": 147,
+      "selected_share": 0.049
+    },
+    {
+      "model": "augmxnt__shisa-base-7b-v1",
+      "true_acc": 0.20766666666666667,
+      "selected_count": 124,
+      "selected_share": 0.04133333333333333
+    },
+    {
+      "model": "SciPhi__SciPhi-Mistral-7B-32k",
+      "true_acc": 0.442,
+      "selected_count": 108,
+      "selected_share": 0.036
+    },
+    {
+      "model": "deepseek-ai__deepseek-llm-67b-chat",
+      "true_acc": 0.5266666666666666,
+      "selected_count": 92,
+      "selected_share": 0.030666666666666665
+    },
+    {
+      "model": "google__gemma-2b-it",
+      "true_acc": 0.25733333333333336,
+      "selected_count": 71,
+      "selected_share": 0.023666666666666666
+    },
+    {
+      "model": "eren23__ogno-monarch-jaskier-merge-7b-OH-PREF-DPO",
+      "true_acc": 0.4696666666666667,
+      "selected_count": 69,
+      "selected_share": 0.023
+    },
+    {
+      "model": "openchat__openchat_3.5",
+      "true_acc": 0.4693333333333333,
+      "selected_count": 51,
+      "selected_share": 0.017
+    },
+    {
+      "model": "Neko-Institute-of-Science__pygmalion-7b",
+      "true_acc": 0.2643333333333333,
+      "selected_count": 47,
+      "selected_share": 0.015666666666666666
+    },
+    {
+      "model": "lmsys__vicuna-13b-v1.5-16k",
+      "true_acc": 0.4043333333333333,
+      "selected_count": 41,
+      "selected_share": 0.013666666666666667
+    },
+    {
+      "model": "ibivibiv__alpaca-dragon-72b-v1",
+      "true_acc": 0.19366666666666665,
+      "selected_count": 36,
+      "selected_share": 0.012
+    },
+    {
+      "model": "CorticalStack__pastiche-crown-clown-7b-dare-dpo",
+      "true_acc": 0.467,
+      "selected_count": 25,
+      "selected_share": 0.008333333333333333
+    },
+    {
+      "model": "Plaban81__Moe-4x7b-math-reason-code",
+      "true_acc": 0.451,
+      "selected_count": 17,
+      "selected_share": 0.005666666666666667
+    },
+    {
+      "model": "mosaicml__mpt-30b-instruct",
+      "true_acc": 0.379,
+      "selected_count": 8,
+      "selected_share": 0.0026666666666666666
+    },
+    {
+      "model": "AdaptLLM__medicine-chat",
+      "true_acc": 0.368,
+      "selected_count": 7,
+      "selected_share": 0.0023333333333333335
+    },
+    {
+      "model": "Nexusflow__Starling-LM-7B-beta",
+      "true_acc": 0.4866666666666667,
+      "selected_count": 5,
+      "selected_share": 0.0016666666666666668
+    },
+    {
+      "model": "SUSTech__SUS-Chat-34B",
+      "true_acc": 0.538,
+      "selected_count": 5,
+      "selected_share": 0.0016666666666666668
+    },
+    {
+      "model": "meta-llama__Meta-Llama-3-70B-Instruct",
+      "true_acc": 0.605,
+      "selected_count": 5,
+      "selected_share": 0.0016666666666666668
+    },
+    {
+      "model": "deepseek-ai__deepseek-coder-6.7b-instruct",
+      "true_acc": 0.29933333333333334,
+      "selected_count": 3,
+      "selected_share": 0.001
+    },
+    {
+      "model": "codellama__CodeLlama-13b-Instruct-hf",
+      "true_acc": 0.31733333333333336,
+      "selected_count": 1,
+      "selected_share": 0.0003333333333333333
+    },
+    {
+      "model": "TigerResearch__tigerbot-13b-base",
+      "true_acc": 0.37433333333333335,
+      "selected_count": 1,
+      "selected_share": 0.0003333333333333333
+    },
+    {
+      "model": "lmsys__vicuna-7b-v1.5-16k",
+      "true_acc": 0.364,
+      "selected_count": 1,
+      "selected_share": 0.0003333333333333333
+    },
+    {
+      "model": "FelixChao__Scorpio-7B",
+      "true_acc": 0.4696666666666667,
+      "selected_count": 1,
+      "selected_share": 0.0003333333333333333
+    },
+    {
+      "model": "FelixChao__llama2-13b-math1.2",
+      "true_acc": 0.385,
+      "selected_count": 1,
+      "selected_share": 0.0003333333333333333
+    },
+    {
+      "model": "PharMolix__BioMedGPT-LM-7B",
+      "true_acc": 0.349,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "deepseek-ai__deepseek-coder-1.3b-base",
+      "true_acc": 0.24333333333333335,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "berkeley-nest__Starling-LM-7B-alpha",
+      "true_acc": 0.471,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "rishiraj__CatPPT-base",
+      "true_acc": 0.48133333333333334,
+      "selected_count": 0,
+      "selected_share": 0.0
+    }
+  ]
+}

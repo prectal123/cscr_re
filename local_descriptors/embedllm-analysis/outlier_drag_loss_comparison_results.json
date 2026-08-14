@@ -1,0 +1,16 @@
+{
+  "n_queries": 5000,
+  "tau": 0.1,
+  "n_iters": 20,
+  "dist_linear_mean": 0.2712087035179138,
+  "dist_softmax_mean": 0.08900998532772064,
+  "wilcoxon_stat": 791475.0,
+  "wilcoxon_p": 0.0,
+  "pct_softmax_closer": 0.8336,
+  "pct_linear_snaps_to_positive": 0.7148,
+  "pct_softmax_snaps_to_positive": 0.7858,
+  "rho_spread_vs_dist_linear": 0.5234041938126527,
+  "p_linear": 0.0,
+  "rho_spread_vs_dist_softmax": -0.11437052975628577,
+  "p_softmax": 4.986509694808987e-16
+}

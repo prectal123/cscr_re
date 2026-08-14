@@ -1,0 +1,103 @@
+{
+  "typical_inter_model_dist": 1.233745813369751,
+  "n_queries": 5000,
+  "spread_mean": 1.098028302192688,
+  "spread_std": 0.2446834295988083,
+  "dist_mean": 0.2712087035179138,
+  "dist_std": 0.22601284086704254,
+  "spearman_rho": 0.5234041938126527,
+  "spearman_p": 0.0,
+  "wide_half_mean_dist": 0.3752136826515198,
+  "tight_half_mean_dist": 0.16720367968082428,
+  "outlier_examples": [
+    {
+      "prompt_id": "9316",
+      "spread": 1.7939910888671875,
+      "dist_to_nearest_real": 0.5648604035377502,
+      "n_positive": 2,
+      "n_total": 71,
+      "positive_models": [
+        "deepseek-ai__deepseek-math-7b-instruct",
+        "tiiuae__falcon-40b-instruct"
+      ]
+    },
+    {
+      "prompt_id": "28490",
+      "spread": 1.6279044151306152,
+      "dist_to_nearest_real": 0.414494127035141,
+      "n_positive": 3,
+      "n_total": 71,
+      "positive_models": [
+        "MaziyarPanahi__WizardLM-Math-70B-v0.1",
+        "meta-math__MetaMath-Llemma-7B",
+        "sail__Sailor-7B"
+      ]
+    },
+    {
+      "prompt_id": "9979",
+      "spread": 1.7939910888671875,
+      "dist_to_nearest_real": 0.5648604035377502,
+      "n_positive": 2,
+      "n_total": 71,
+      "positive_models": [
+        "deepseek-ai__deepseek-math-7b-instruct",
+        "tiiuae__falcon-40b-instruct"
+      ]
+    },
+    {
+      "prompt_id": "31945",
+      "spread": 1.9711377620697021,
+      "dist_to_nearest_real": 0.9224600195884705,
+      "n_positive": 2,
+      "n_total": 71,
+      "positive_models": [
+        "google__gemma-7b-it",
+        "meta-llama__Meta-Llama-3-70B"
+      ]
+    },
+    {
+      "prompt_id": "20682",
+      "spread": 1.8642207384109497,
+      "dist_to_nearest_real": 0.606589674949646,
+      "n_positive": 2,
+      "n_total": 71,
+      "positive_models": [
+        "Qwen__Qwen1.5-0.5B-Chat",
+        "cognitivecomputations__yayi2-30b-llama"
+      ]
+    },
+    {
+      "prompt_id": "31094",
+      "spread": 1.9796556234359741,
+      "dist_to_nearest_real": 0.7719022035598755,
+      "n_positive": 2,
+      "n_total": 71,
+      "positive_models": [
+        "HuggingFaceH4__zephyr-7b-beta",
+        "OpenAssistant__oasst-sft-4-pythia-12b-epoch-3.5"
+      ]
+    },
+    {
+      "prompt_id": "14888",
+      "spread": 1.914089560508728,
+      "dist_to_nearest_real": 0.4715723395347595,
+      "n_positive": 2,
+      "n_total": 71,
+      "positive_models": [
+        "TheBloke__tulu-30B-fp16",
+        "mosaicml__mpt-7b-chat"
+      ]
+    },
+    {
+      "prompt_id": "21702",
+      "spread": 1.9249244928359985,
+      "dist_to_nearest_real": 0.7799493074417114,
+      "n_positive": 2,
+      "n_total": 71,
+      "positive_models": [
+        "EleutherAI__llemma_7b",
+        "meta-llama__Meta-Llama-3-70B"
+      ]
+    }
+  ]
+}
