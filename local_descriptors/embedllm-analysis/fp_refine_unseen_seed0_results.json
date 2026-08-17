@@ -1,0 +1,13 @@
+{
+  "knn": {
+    "audc": 0.43101424972301505,
+    "qnc": 0.23024499487876893,
+    "peak": 0.44666666666666666
+  },
+  "best_epoch": 3,
+  "best_holdout_rho": 0.3871290123557883,
+  "cumulative_fp_step_norm_mean": 65.5593032836914,
+  "cumulative_fp_step_norm_max": 139.34605407714844,
+  "net_drift_from_oracle_mean": 1.2095133066177368,
+  "net_drift_from_oracle_max": 1.9480104446411133
+}

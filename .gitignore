@@ -208,5 +208,8 @@ __marimo__/
 
 # Project-specific: local venvs and large regeneratable raw-data caches
 .venv-check/
+.venv-legacy/
+.venv-modern/
+local_models_4bit/
 **/setA_setB_split.pkl
 local_checkpoints/

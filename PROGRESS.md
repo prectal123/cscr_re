@@ -1239,3 +1239,204 @@ loss_neg = mean_{m: t_m<=0} (cos_sim(q,E_m) - t_m)²   (오답 쪽은 불변 —
 
 **다음 검증 후보**: catfilter를 margin 기반으로 개선, min-pos + category-filter 결합, all-seen(21.8) 결과와 종합.
 4. **문서화 프로세스 교훈**: 이번처럼 커밋은 됐는데 PROGRESS.md 서술이 누락되는 일이 재발하지 않도록, **작업 세션을 마칠 때 커밋 메시지에 적은 내용은 반드시 PROGRESS.md에도 같은 세션 안에서 옮겨 적을 것.**
+
+---
+
+## 22. Cost 버그 수정, Catfilter 방법론 확정, Combined GRPO 확립, FP 유형별 일반화 검증 (2026-08-15)
+
+**배경**: 21번 섹션 이후 "치팅 없는지 점검해보자"는 요청으로 파이프라인 전체를 감사하다가 진짜 버그를 발견했고, 그걸 고친 뒤 catfilter의 컷오프 방법론을 확정하고, min-pos+catfilter를 결합한 Combined GRPO를 멀티시드로 검증하고, 마지막으로 이 개선이 FP 종류에 무관하게 통하는지(Ceiling V1/Perplexity FP) 테스트한 하루.
+
+### 22.1 Cost 계산 버그 발견 및 수정
+
+- `src/router/cost_models.py`의 `get_param_count()`가 `int()` 캐스팅을 써서 n_params<1인 모델(예: Qwen1.5-0.5B-Chat)의 비용이 전부 0으로 계산되던 버그. `float()`로 수정.
+- `experts/registry.json`에 모델 3개가 아예 없었음: `microsoft__phi-1_5`, `cloudyu__Mixtral_11Bx2_MoE_19B`(HF API로 n_params 확인 후 추가, 151개로 증가), `JaeyeonKang__CCK_Asura_v1`(HF API가 `401 Repository Not Found` 반환 — 삭제된 phantom repo, 등록 대신 전 실험에서 영구 제외).
+- 이 버그로 all-seen AUDC가 약 4% 부풀려져 있었음(min-pos all-seen: 버그 상태 0.5824 → 수정 후 0.5587, 3/3 CSCR 이김 결론 자체는 유지).
+- 별개로 `run_audc_eval.py`의 `paired_bootstrap_audc_cached()`가 정렬 안 된 cost/accuracy 배열을 받아 `delta=+nan`이 가끔 나오는 기존 버그도 발견(AUDC/QNC/Peak 자체는 별도의 정렬된 경로라 영향 없음) — RouterBench 스크립트들에서 `np.argsort` 정렬을 추가해 해결.
+
+### 22.2 Margin catfilter + Combined 첫 시도 (seed0 단발 확인)
+
+`scripts/embedllm_margin_combined_seed0.py` — margin=0.15 기반 catfilter(1등 대비 격차가 margin 이내인 정답만 유지, Top-K 고정 컷의 "89%도 3등이면 잘림" 문제를 해결하려는 시도)와, 그 마스크를 min-pos 로스에 먹인 combined를 seed0만 빠르게 확인:
+
+| 프로토콜 | margin-catfilter | combined(min-pos+margin-catfilter) |
+|---|---|---|
+| unseen (CSCR 0.4848) | 0.5307 | 0.5233 |
+| all-seen (CSCR 0.541) | 0.5381 (짐) | **0.5663** (당시까지 all-seen 최고) |
+
+combined가 seed0만으로도 유망해 보여 이후 멀티시드로 확장(22.5).
+
+### 22.3 RouterBench 일반화 확인 (vanilla/min-pos/catfilter-top2, all-seen, 3시드)
+
+`scripts/routerbench_grpo_variants_multiseed.py`, CSCR 논문 RouterBench AUDC=0.711 기준:
+
+| variant | seed0 | seed1 | seed2 | 평균 | std | CSCR 이김 |
+|---|---|---|---|---|---|---|
+| vanilla-grpo | 0.7420 | 0.7359 | 0.7391 | 0.7390 | 0.0025 | 3/3 |
+| min-pos | 0.7196 | 0.7214 | 0.7209 | 0.7206 | 0.0007 | 3/3 |
+| catfilter-top2 | 0.7397 | 0.7399 | 0.7402 | 0.7400 | 0.0002 | 3/3 |
+
+셋 다 CSCR은 이기지만, **순위가 EmbedLLM과 정반대**(RouterBench에서는 min-pos가 제일 약함) — 모델 풀이 작으면(11개) min-pos의 "가장 가까운 정답 하나만 맞추면 됨" 방식이 오히려 손해라는 신호로 해석.
+
+### 22.4 Catfilter 컷오프 방법론 확정: Top-50%
+
+사용자의 원래 아이디어는 "상위 50% 유지"(percentile)였는데, 실제 구현은 Top-2(고정 개수)와 margin(임계값)이 먼저 나왔던 상태 — 3가지를 전부 하나의 `compute_keep_idx(pos_idx, scores, mode)` 함수로 통일 구현해(모드만 다르게) 오류 위험을 없애고, EmbedLLM all-seen에서 3시드로 단독 비교(`scripts/embedllm_catfilter_multiseed_costfixed.py`):
+
+| 방법론 | seed0 | seed1 | seed2 | 평균 | std | CSCR(0.541) 이김 |
+|---|---|---|---|---|---|---|
+| top2 | 0.5430 | 0.5310 | 0.5297 | 0.5346 | 0.0060 | 1/3 |
+| **top50%** | 0.5432 | 0.5392 | 0.5339 | **0.5388** | **0.0038** | 1/3 |
+| margin | 0.5381 | 0.5323 | 0.5302 | 0.5335 | 0.0033 | 0/3 |
+
+**top50%가 평균 최고 + margin과 안정성 거의 동급 → 이후 모든 combined 실험의 catfilter는 top50%로 확정.** (재밌게도 top50%는 사용자의 원래 직관이었고, top2/margin은 이후에 추가된 변형이었음.)
+
+### 22.5 Combined(min-pos + top50%-catfilter) 확립 — EmbedLLM 11시드
+
+`scripts/embedllm_combined_multiseed.py`(seed 0-2) + `scripts/embedllm_generate_splits_5to10.py`(seed 5-10 신규 split 생성, 기존 `build_split()` 로직 그대로 재사용해 시드 1-4와 방법론적으로 동일) + SEEDS 확장 재실행(seed 3-10)으로 총 11시드(0~10) 확보:
+
+| 프로토콜 | 11시드 평균 | std | CSCR 이김 |
+|---|---|---|---|
+| unseen (CSCR 0.4848) | **0.5175** | 0.0485 | **11/11** |
+| all-seen (CSCR 0.541) | **0.5581** | **0.0036** | **11/11** |
+
+unseen이 마진이 더 크고(+6.8%) all-seen은 마진이 얇지만(+3.2%) 11시드 전원 안 짐 — "unseen(본선)에서 확실히 이기고 all-seen(곁다리)에서도 안 진다"는 프레이밍으로 정리. (CSCR 자체가 FP 데이터셋을 비공개해서 정확한 재현이 불가능하다는 점, 그리고 우리 자체 cost 버그 하나가 4% 가까이 결과를 흔들었던 전례를 감안하면, "CSCR을 이겼다"는 주장은 통계적으로 방어하기 약하고 — 파이프라인 내부의 vanilla-GRPO 대비 개선이 훨씬 rigorous한 주장이라는 점을 사용자와 합의함.)
+
+### 22.6 Ceiling FP 구축 방식의 스코프 한계 (검토 후 결론: 문제 아님)
+
+Ceiling FP는 "unseen" 모델이라도 그 모델의 FP 좌표 자체는 Set A(train.csv) 실제 정확도로 만들어짐(`build_embedllm_ceiling_fp.py`) — 즉 unseen 프로토콜은 "쿼리-라벨 페어를 안 보여준 것"이지 "성능 이력이 아예 없는 신규 모델 라우팅"을 테스트하는 게 아님. 발표 시 "unseen"이라는 단어의 스코프를 명확히 할 필요.
+
+### 22.7 Ceiling V1(probe-sampled) 에서도 Combined 유지되는지 검증
+
+배경: `scripts/embedllm_newllm_probe_sampling.py`로 예전에 만든 vanilla GRPO 결과를 보면, 오라클급 정보량인 Ceiling V2(카테고리당 중앙값 177개, 최대 3,454개 프롬프트 평균)와 달리, Ceiling V1(카테고리당 top-variance 24개 프롬프트만 사용, 최대 **140배** 적은 정보량)에서는 vanilla GRPO가 N=24에서도 5시드 평균 0.4421로 **0/5 (CSCR 못 이김)**, N=6에서는 random보다도 못한 시드까지 있었음.
+
+`scripts/embedllm_probeN24_combined_multiseed.py`(unseen, 3시드, N=24)로 combined를 이 조건에서 테스트:
+
+| | seed0 | seed1 | seed2 | 평균 | std | CSCR 이김 |
+|---|---|---|---|---|---|---|
+| vanilla GRPO (N=24, 5시드) | 0.4161 | 0.4701 | 0.4507 | 0.4421(5시드) | - | 0/5 |
+| **combined (N=24, 3시드)** | 0.5185 | 0.5224 | 0.5103 | **0.5171** | 0.0050 | **3/3** |
+
+같은 3시드로 비교한 V2 combined 평균(0.5163, seed0-2)과 **차이가 0.0008**로 사실상 동일 — FP의 정보량이 7~140배 줄어도 combined의 효과는 거의 손실되지 않음.
+
+### 22.8 FP 유형(Capability vs Perplexity) 의존성 검증 — RouterBench
+
+질문: Combined GRPO가 FP 종류와 무관하게 통하는 범용 로스 기법인가, 아니면 capability-encoded FP와의 시너지인가? EmbedLLM은 모델의 실제 응답 텍스트(response text)를 공개하지 않아 Perplexity FP를 만들 수 없음(라벨만 있음, `build_routerbench_perplexity_fp.py` 방식 적용 불가) — RouterBench는 `{model}|model_response` 컬럼이 있어 기존에 구축된 32차원 GPT-2 cross-entropy 기반 Perplexity FP(`local_descriptors/routerbench-perplexity/`, 정확도 정보 전혀 없음)가 존재.
+
+`scripts/routerbench_perplexity_combined.py`(all-seen, 3시드)로 같은 데이터/같은 combined 로스, FP만 교체해 비교:
+
+| FP | seed0 | seed1 | seed2 | 평균 | std | CSCR(0.711) 이김 |
+|---|---|---|---|---|---|---|
+| Ceiling(capability) | 0.7216 | 0.7238 | 0.7223 | **0.7226** | 0.0009 | **3/3** |
+| Perplexity(GPT-2 CE) | 0.6916 | 0.7003 | 0.6888 | 0.6936 | 0.0049 | **0/3** |
+
+Perplexity 쪽도 std가 크게 넓지 않아(0.0049) 노이즈로 보기 어려움 — **체계적인 차이**. 결론: Combined GRPO는 범용이 아니라 **capability-encoded FP와 시너지가 있는 방법**. Perplexity FP는 random보다는 유의미하게 낫지만(bootstrap delta 전부 p<0.001) CSCR급까지는 못 올라감.
+
+**RouterBench 해석 시 주의**: Oracle(11개 모델 중 프롬프트별 최고 성능, 비용 무시) 정확도 0.9636, 정적으로 GPT-4만 계속 쓸 때 0.8418, 우리 라우터의 최고 지점(Peak)은 0.776~0.778로 **정적 GPT-4 단독보다도 낮음**. AUDC(0.72)는 오라클과 비교 대상이 아니라 cost-lambda 스윕 전체의 적분 평균이라 이 격차 자체는 정상이지만, RouterBench는 모델 풀이 작고(11개) GPT-4가 압도적으로 강해서 라우팅으로 얻을 수 있는 이득 자체가 원래 작은 벤치마크라는 점은 발표 시 짚어야 함.
+
+### 22.9 종합 결론 (2026-08-15 세션 기준, 사용자 정리 및 검증)
+
+1. Ceiling V2(이상적 capability FP)에 CSCR류 baseline(contrastive InfoNCE)만 쓰면 CSCR을 못 이김.
+2. min-pos·category-filter(top50%)로 Combined GRPO 형태를 갖추면 CSCR을 소폭 상회(unseen +6.8%, all-seen +3.2%, 11시드 전원).
+3. unseen에서 효과가 가장 크고, all-seen에서도 지지 않음.
+4. FP가 capability(정확도) 정보를 담고 있는 것이 핵심 — Perplexity FP(비-capability 신호)에서는 CSCR을 못 넘김(RouterBench, 0/3).
+5. Ceiling V1처럼 프롬프트를 크게 줄여 샘플링해도(최대 140배 적은 정보량) 효과는 V2 대비 거의 떨어지지 않음(차이 0.0008).
+
+**다음 방향(논의만, 미착수)**: (a) 적응적 trim(soft-min, temperature를 학습해 min-pos/catfilter를 쿼리마다 얼마나 강하게 걸지 모델이 직접 정하게 하는 방향), (b) 추론 시점에 top-K cosine similarity margin을 불확실성 신호로 써서 outlier-drag 상황을 라우팅 결정에도 반영하는 방향(현재는 min-pos/catfilter가 학습 시그널에만 관여하고 추론 코드는 vanilla와 완전히 동일), (c) 3개 시드 체크포인트 앙상블(거의 공짜, 미시도).
+
+**미커밋 상태**: `experts/registry.json`, `src/router/cost_models.py`(cost 버그 수정), 이번 섹션에서 언급된 모든 신규 스크립트와 결과 JSON — 다음 커밋에서 정리 필요.
+
+### 22.10 발표용 정리 중 발견: catfilter 컷 pct=0.3이 top50%보다 확실히 우세 (같은 날 후속)
+
+22.9의 결론 5개를 논문 형식(`RESULTS_SUMMARY.md`)으로 재정리하던 중, ablation 표를 보고 "catfilter가 min-pos에 얹었을 때 거의 기여가 없어 보인다"는 의문이 제기됨 — all-seen에서 combined(0.5581)이 min-pos 단독(0.5587)과 거의 동일했기 때문. 원인 가설: top50% 컷이 너무 관대해서, min-pos가 어차피 고르지 않았을 후보만 잘라내는 경우가 대부분이라 catfilter가 실질적으로 개입할 여지가 적었을 것.
+
+**percentile을 10/20/30/50%로 스윕(seed0)** — RouterBench(11개 모델)는 정답 후보가 2~3개인 쿼리가 대부분이라 `ceil(n*0.1)=ceil(n*0.2)=ceil(n*0.3)=1`로 컷들이 서로 구별이 안 돼 무효 판정, EmbedLLM(111개 모델)으로 옮겨서 재시도:
+
+| pct | AUDC(seed0, all-seen) |
+|---|---|
+| 0.1 | 0.5510 |
+| 0.2 | 0.5511 |
+| **0.3** | **0.5659** |
+| 0.5(=기존 확정치) | 0.5574 |
+
+0.3에서 뚜렷한 비단조 정점 발견 → 3시드로 확정(mean=**0.5652**, std=**0.0005**, 3/3 CSCR 승) — min-pos 단독(0.5587)보다 +0.0065, 기존 top50%-combined(0.5581)보다 +0.0071. std도 지금까지 나온 all-seen 결과 중 제일 좁음. **EmbedLLM all-seen의 새로운 확정 combined 설정은 pct=0.3.**
+
+**unseen에서는 재현 안 됨**: 같은 pct=0.3을 unseen(학습에 쓰는 seen 모델 74개)에서 3시드 재검증하니 평균 0.5162(std=0.0132) — 기존 top50%의 0.5163과 사실상 동일. **catfilter 컷 민감도 자체가 모델 풀 크기에 비례**하는 것으로 보임: RouterBench(11개, 무감) < unseen 학습 풀(74개, 무감) < all-seen(111개, 뚜렷) — §17.10 이래 이 프로젝트 전체에 반복된 "모델 풀이 커야 라우팅 개입의 여지가 생긴다"는 결론과 같은 방향.
+
+관련 신규 스크립트: `routerbench_catfilter_pct_sweep.py`(무효 판정, 참고용), `embedllm_catfilter_pct_sweep.py`(all-seen seed0 스윕), `embedllm_pct30_combined_multiseed.py`(all-seen 3시드 확정), `embedllm_pct30_unseen_multiseed.py`(unseen 3시드 재검증). `RESULTS_SUMMARY.md`의 §1.2/§2.3/§2.5에 전체 정리 반영됨.
+
+### 22.11 Ablation 표 완결 (같은 날 후속) — vanilla all-seen과 catfilter 단독(pct=0.3) 채움
+
+`RESULTS_SUMMARY.md` §2.2/§2.3을 "제대로" 정리하기 위해, 남아있던 3개 gap을 `embedllm_ablation_gapfill.py`(3시드씩, 총 9 run)로 채움:
+
+- **all-seen vanilla GRPO(신규)**: 0.5056/0.4664/0.4685, 평균 **0.4802, 0/3** — unseen에서 1/4만 이겼던 것과 같은 방향으로, GRPO 원본은 all-seen에서도 CSCR을 하나도 못 이김.
+- **all-seen catfilter(pct=0.3) 단독(mean 집계, 신규)**: 0.5351/0.5386/0.5355, 평균 **0.5364, 0/3** — 기존 top50% 단독(0.5388, 1/3)보다 오히려 낮음.
+- **unseen catfilter(pct=0.3) 단독(신규)**: 0.5224/0.5078/0.4808, 평균 **0.5037, 2/3** — 기존 Top-2 단독(0.5092, 3/4)과 비슷한 수준.
+
+**핵심 발견**: catfilter 단독으로는 top50%가 pct=0.3보다 낫지만(0.5388 > 0.5364), min-pos와 결합하면 정반대로 pct=0.3이 top50%보다 확실히 나음(0.5652 > 0.5581, §22.10). **"catfilter에 최적인 컷"과 "min-pos와 결합했을 때 최적인 컷"이 다르다**는 비대칭 — 처음 combined(top50%)가 min-pos 단독과 거의 같아서 "catfilter가 기여 없다"고 봤던 게, 사실은 컷 비율과 집계 방식(mean vs min) 사이의 상호작용을 놓친 결과였음. 메커니즘은 아직 가설 수준("min-pos가 이미 outlier를 어느 정도 거르므로, catfilter는 min-pos가 놓치는 부분만 노려 더 공격적으로 잘라야 시너지")이고 정식 검증은 안 됨 — `RESULTS_SUMMARY.md` 데이터 공백 7번 참고.
+
+이걸로 §2.2(unseen)/§2.3(all-seen) ablation 표가 vanilla/min-pos단독/catfilter단독/combined 4-way로 완결됨(§2.4 RouterBench와 동일한 형태). `RESULTS_SUMMARY.md` 전체 반영됨.
+
+### 22.12 "한 스텝 더" 탐색 — Inference/FP 개선 시도 두 건 (같은 날 후속)
+
+**시도 1 (기각): 쿼리→모델 상호 견인 (`embedllm_fp_refine_seed0.py`)** — 학습 중 매 배치마다 catfilter 통과 정답 모델의 FP를 현재 쿼리 착탄점 쪽으로(거리 반비례 감쇠 스텝, alpha=0.02) 살짝 당기는 방식. unseen seed0에서 AUDC=0.4310으로 combined(pct=0.3) 기준(0.5264) 대비 **-18% 확실한 실패**. 원인: "아주 살짝"을 의도했지만 10 epoch × 수백 배치 누적으로 net drift가 평균 1.21/최대 1.95(최대 가능 2.0)까지 폭주 — seen 모델이 원래 오라클 위치에서 사실상 이탈해 unseen(고정) 모델과의 좌표계 정합성이 깨짐. holdout_rho도 epoch3 이후 요동치며 하락.
+
+**시도 2 (효과는 있으나 미미, 최종안 미포함): capability 기반 FP 스무딩 (`embedllm_fp_smooth_seed0.py`, `embedllm_fp_smooth_beta_sweep.py`)** — 학습 시작 "전에 딱 한 번", 결정론적으로 카테고리별 정확도 프로필이 비슷한 **seen 모델끼리만**(unseen은 이웃이 될 수 없음 — `build_embedllm_ceiling_fp.py`의 기존 "unseen-unseen 리크 방지" 원칙 그대로 적용) K=5개 평균 쪽으로 FP를 blend(`(1-β)·원본 + β·이웃평균`). 시도1과 달리 seen/unseen 전부 동일 규칙으로 처리되고, 학습 신호와 무관한 1회성 전처리라 drift가 통제됨(β=0.15: 평균 0.0344/최대 0.1493, 최대 가능 2.0 대비).
+
+β 스윕(K=5 고정, seed0, unseen): 0.15→0.5305, 0.25→0.5327(최고), 0.35→0.5311, 0.5→0.5323 — 전부 무보정 기준(0.5264) 대비 **+0.4~1.2%의 작은 개선**, β=0.25 근처에서 빠르게 정체(비단조, 더 키워도 안 좋아짐). 단일 시드라 노이즈 가능성을 배제 못하고, 설령 진짜여도 pct=0.3 발견(+4.5~6.8%)에 비하면 규모가 작아 **추가 복잡도(K/β 하이퍼파라미터, unseen 처리 로직) 대비 이득이 낮다고 판단, 최종 확정 방법론(combined pct=0.3)에는 포함하지 않기로 함.**
+
+**다음 방향 재확인**: 오늘 나온 패턴(작은 손잡이 조정은 효과 미미, 로스/타겟 구조 자체를 바꾼 것만 큰 폭 개선)에 따라, 다음으로 시도할 "과감한" 후보는 여전히 §22.9에서 언급한 **적응적 trim(soft-min, learnable temperature)** — 하드코딩된 min-pos/percentile-catfilter 규칙 자체를 학습 가능하게 만드는 구조적 확장. 미분 가능한 트리밍 메커니즘 설계가 필요해 다음 세션 과제로 남김.
+
+### 22.13 앙상블(정직하게 기각) + Ceiling V1의 all-seen 재검증 (같은 날 후속)
+
+**앙상블 시도**: 이미 학습된 pct=0.3 combined 체크포인트들의 similarity 점수를 평균(재학습 없음). All-seen(3체크포인트, 111개 모델 — 시드마다 모델 풀이 동일해 앙상블에 구조적 문제 없음): AUDC=**0.5713**, 최고 단일 시드(0.5659)보다도 높음 — 진짜 개선. 그러나 **"이번 방법론에서 편법 같다"는 사용자 판단으로 최종안에서 제외** — 메커니즘 설명이 없는 범용 분산 감소 트릭이라 min-pos/catfilter처럼 이 프로젝트의 "방법론"이라 부르기 어렵고, 성과 귀인이 흐려진다는 이유. (참고로 unseen 앙상블은 애초에 시도했다가 **방법론적 결함**을 발견 — 시드마다 seen/unseen 모델 구성이 달라서, 다른 시드의 unseen 폴더로 여러 체크포인트를 평가하면 seen-모델 정보 누수가 생김(seed0 unseen 35개 중 23개가 seed1의 seen 세트에 포함). all-seen에는 이 문제가 없음. 이 버그는 앙상블 스크립트에만 있었고 다른 모든 기존 결과는 각 시드가 자기 자신의 split만 쓰도록 정확히 구현돼있음을 재확인함.)
+
+**Ceiling V1(N=24)의 all-seen 재검증**: unseen에서는 V1이 V2와 사실상 동일했지만(§22.7), all-seen은 처음 시도 — probeN24 FP 디렉토리가 레지스트리 수정 이전에 만들어져 2개 모델(phi-1_5, Mixtral)이 빠져있어 109개 모델(V2 111개와의 교집합)로 3시드 진행:
+
+| | seed0 | seed1 | seed2 | 평균 | std | CSCR(0.541) 승 |
+|---|---|---|---|---|---|---|
+| Ceiling V1 all-seen combined(pct=0.3) | 0.5548 | 0.5450 | 0.5447 | **0.5481** | 0.0047 | 3/3 |
+
+CSCR은 여전히 이기지만(+1.3%) V2(0.5652, 111개 모델 기준)보다 **-3.0%, 세 시드 모두 일관되게 낮음**(격차가 -0.0111→-0.0198→-0.0212로 점점 벌어지는 추세). **unseen과 달리 all-seen에서는 저비용 FP(V1)의 성능 손실이 실재함** — 후보 풀이 클수록(all-seen 109개 vs unseen 평가시 35~37개) probe 샘플링 노이즈가 랭킹에 영향을 줄 기회가 늘고, 학습 타겟 차원도 커져서(74→109) 노이즈가 누적되는 것으로 해석. §22.10/22.11에서 반복 확인된 "모델 풀 크기가 개입의 여지를 결정한다"는 결론의 반대쪽 얼굴(이득뿐 아니라 손실도 커짐).
+
+**결론 정정**: "V1은 V2와 완전히 동등하다" → "**V1은 unseen(주 타겟)에서는 손실 없이 동등하고, all-seen(부차 타겟)에서는 모델 풀이 클수록 커지는 작지만 일관된 대가가 있다.**" 논문 서사의 핵심(Combined GRPO가 CSCR을 이긴다)은 전혀 손상되지 않음 — V1은 애초에 §4의 보너스 질문(비용 절감)이었고, 그 답이 "완전 공짜"에서 "주 타겟은 공짜, 부차 타겟은 조건부"로 더 정교해진 것뿐.
+
+**다음 탐색 후보(미착수, 다음 세션)**: probe 선택 휴리스틱 개선(현재는 카테고리별 분산 top-N만 봄, 프롬프트 간 다양성/중복 미고려) 또는 all-seen처럼 풀이 큰 상황에 한해 N을 늘리는 이원화 전략.
+
+관련 신규 스크립트: `embedllm_ensemble_eval.py`(unseen, 결함 발견용 참고 자료로 남김), `embedllm_allseen_ensemble_eval.py`(all-seen, 유효), `embedllm_probeN24_allseen_pct30_multiseed.py`(Ceiling V1 all-seen). `RESULTS_SUMMARY.md` §4 반영됨.
+
+### 22.14 Probe 재분배(PCA loading 가중) 시도 — unseen은 유효, all-seen은 명확히 실패 (다음날)
+
+카테고리별 균등 24개 대신, V2 전체 데이터로 계산한 PCA loading(5개 주성분 기여도)에 비례해 probe를 차등 배분(sqrt(importance) 스케일, 바닥값 6개, 총 1,200개 — 균등 1,920개 대비 37.5% 절감) 시도.
+
+먼저 카테고리 중요도 자체를 계산해보니(`embedllm_pca_loading_analysis.py`) 예상보다 덜 집중돼있었음 — PC1이 87.8%를 차지하는데도, 상위 20/80 카테고리가 중요도의 50%만 차지(90% 담으려면 45/80 필요). "소수만 남겨도 된다"는 극단적 가설은 기각.
+
+3시드로 unseen/all-seen 둘 다 검증:
+- **unseen**: 0.5406/0.5263/0.5044, 평균 0.5238(std=0.0149) — V1 균등(0.5171)·V2(~0.517)와 대등, 3/3 CSCR 승. 37.5% 적은 데이터로 손실 없음.
+- **all-seen**: 0.5397/0.5378/0.5403, 평균 **0.5393(std=0.0011, 매우 일관됨)** — V1 균등(0.5481)보다도 낮고 V2(0.5652) 대비 -4.6%, **0/3 CSCR 패배**.
+
+**원인 추정**: 중요도를 "풀 전체의 집합적 분산 설명력"으로 계산했는데, all-seen처럼 109개 모델을 전부 구별해야 하는 상황에서는 전체 분산엔 기여 적어도 특정 모델 쌍 구별엔 결정적인 카테고리가 있을 수 있고, 그런 카테고리가 바닥값(6개)으로 밀려나면서 랭킹 품질이 떨어진 것으로 보임 — §22.13의 "모델 풀이 클수록 저비용 FP의 노이즈 민감도도 커진다"는 진단과 같은 방향, 더 강하게 재확인됨.
+
+**검토된 대안(미착수)**: 바닥값 상향(6→12~15), 균등 베이스+가중 보너스 하이브리드, 재분배를 unseen 전용으로 스코프 한정, 중요도 기준을 "전체 분산 설명력" 대신 "가장 비슷한 모델 쌍 구별력"으로 재정의.
+
+관련 신규 스크립트: `embedllm_pca_loading_analysis.py`, `embedllm_build_pca_weighted_probe_fp.py`, `embedllm_pcaweighted_combined_multiseed.py`(unseen), `embedllm_pcaweighted_allseen_pct30_multiseed.py`(all-seen). `RESULTS_SUMMARY.md` §4.1 반영됨.
+
+### 22.15 바닥값 상향(6→15)으로 재분배 성공 + 대안 2개 기각 (같은 날 후속)
+
+바닥값을 6→15로 올려(총 1,800개, 균등 1,920개 대비 6.2% 절감) 재검증:
+
+| | probe 수 | unseen(3시드) | all-seen(5시드, seed0-4) |
+|---|---|---|---|
+| V1(균등) | 1,920 | 0.5171 | 0.5481 |
+| **V1.5(가중, 바닥15)** | **1,800** | **0.5121** | **0.5561** |
+
+**V1.5가 V1보다 probe를 더 적게 쓰면서도 all-seen에서 확실히 앞섬**(0.5561 > 0.5481, 5/5 CSCR 승, V2 대비 -1.6%로 격차도 절반 이하로 줄어듦). 바닥값 6(§22.14)에서는 all-seen 0/3으로 완패했는데 15에서는 성공 — "전체 분산 기여는 적어도 특정 모델 쌍 구별에 필요한 카테고리"의 최소 안전마진이 핵심이었다는 가설이 실증적으로 확인됨.
+
+같은 scale에서 바닥값만 분리해서 올린 순수 실험(상위 카테고리 배분 1,200-probe 버전과 완전 동일, 총 1,442개)도 시도했으나, seed1에서 V2 대비 -4.3%로 나빠 사용자가 "원하는 방향이 아니다"라고 판단해 중단.
+
+**기각된 대안 2건**:
+1. **프롬프트 단위 직접 PCA**(카테고리 안 거치고 29,673차원에서 SVD, 축당 상위 200개): 커버리지 버그(12개 카테고리 probe 0개) 발견했고, 더 근본적으로 프롬프트 단위 PCA는 상위 5축이 분산의 **32.27%**만 설명(카테고리 단위 94.66%의 1/3) — 카테고리 평균이 신호 희석이 아니라 노이즈 감소 역할도 하고 있었다는 뜻. 사용자 판단으로 폐기.
+2. **모델 쌍 구별력 기반 probe 선별**: 사용자 스스로 "체리피킹 같다"고 기각 — 현재 모델 풀의 특정 혼동 쌍에 과적합돼 신규 모델에 일반화 안 됨.
+
+**대화 중 나온 별도 통찰**: CSCR이 probe를 거의 안 쓸 수도 있다는 우려에 대해, (a) CSCR FP가 비공개라 정확한 비교 불가, (b) 핵심 기여(Combined GRPO)는 이미 존재하는 공개 벤치마크 데이터로 검증됐으므로 FP 구축 비용과 무관하게 유효, (c) FP 비용 절감은 "미래의 새 모델 onboarding"이라는 별도의 부차적 질문임을 재확인 — 사용자의 "핵심 기여가 의미없어 보인다"는 우려에 대한 정리.
+
+**다음 세션 후보**: 공개 벤치마크 점수(gsm8k, mmlu 등 모델 카드에 이미 보고된 점수) 재사용 — probe 자체를 아예 안 돌리는 방향, 미착수.
+
+관련 신규 스크립트: `embedllm_build_pca_weighted_probe_fp_floorablation.py`(분리 실험, 폐기), `embedllm_prompt_level_pca_probe_selection.py`(프롬프트 단위 PCA, 폐기). `RESULTS_SUMMARY.md` §4.1 반영됨.
