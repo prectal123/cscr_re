@@ -1486,7 +1486,15 @@ CSCR은 여전히 이기지만(+1.3%) V2(0.5652, 111개 모델 기준)보다 **-
 - **구현**: `build_routerbench_perplexity_fp.py`의 `N_PROBES` 상수만 바꾸면 나머지 로직(Set A 샘플링, GPT-2 채점, 저장) 그대로 재사용 가능. 코드 수정 거의 없음.
 - **예측**: 32→192 구간에서 이미 개선되면(reliability 문제였다는 뜻) 22.8 결과를 스스로 시정한 셈이 되어 신뢰도에 플러스. 192→1800까지 가도 여전히 Ceiling에 못 미치면, 격차가 probe 예산이 아니라 **FP가 capability 정보를 담고 있는가(validity)의 문제**라는 기존 결론(22.8)이 더 탄탄해짐.
 - unseen/all-seen 결과가 다를 가능성 있음 — probe 축소에 all-seen이 훨씬 민감했던 기존 패턴(22.7/22.13/22.15)을 감안하면, probe 증가의 효과도 all-seen 쪽이 더 클 수 있음(반대 방향 대칭) — 실행 후 비교 필요.
-- **미착수**, 다른 로컬(GPU 있는 환경)에서 실행 예정.
+
+**⚠️ 실행 전 발견한 추가 confound — "표본 수"와 "차원 수"가 지금 1:1로 묶여 있음**: `build_routerbench_perplexity_fp.py`는 probe 1개 = 벡터 1차원(GPT-2 cross-entropy 스칼라)으로 대응되므로, N_PROBES를 1,800으로 올리면 자동으로 **1,800차원** 벡터가 됨. 문제는 **RouterBench가 모델 11개뿐**이라는 것 — 11개 점을 1,800차원에 흩뿌리면 실제 필요한 자유도(최대 10차원)보다 압도적으로 많은 차원을 주는 셈이라, "probe를 늘려서 노이즈가 줄었다"는 진짜 reliability 효과와 "차원이 극단적으로 많아져서 다운스트림 학습(query encoder projection head)이 11개 타겟을 사실상 과적합/암기해버릴 여지가 생겼다"는 순수 차원-팽창 효과가 뒤섞임. (참고: EmbedLLM의 Ceiling V1/V1.5도 probe-indexed라 비슷한 문제가 원리상 있지만, 거긴 모델이 80~112개라 비율(1800/80≈22)이 RouterBench(1800/11≈164)보다 훨씬 덜 극단적이라 상대적으로 덜 위험했음.)
+
+**대응 계획 — 표본 수(reliability)와 차원 수(representational capacity)를 분리해서 스윕**:
+1. **고정 32차원 + 표본만 증가(메인)**: 기존 32차원은 유지하되, 각 차원을 probe 1개가 아니라 여러 개(예: 56개씩 32묶음 = 1,800개)의 평균으로 채움 — "차원 수는 그대로, 각 차원의 추정치만 더 안정적"이라 순수 reliability 효과만 봄. 교수님 주장을 가장 정직하게 검증하는 버전.
+2. **1,800차원 그대로(보너스/참고용)**: probe=차원=1,800, Ceiling FP의 probe-indexed 방식과 형식적으로 일치. **이 버전에서 성능이 크게 오르면, 반드시 같은 차원의 랜덤 벡터(negative control, 17.11에서 이미 쓴 방식과 동일)로도 돌려서 "차원 수 자체의 효과"와 "진짜 신호"를 분리 확인할 것.**
+- 구현 시 `N_PROBES`(표본 수)와 `N_DIMS`(차원 수)를 별도 파라미터로 분리해야 함 — 현재 스크립트는 이 둘이 암묵적으로 묶여 있어 수정 필요.
+
+**미착수**, GPU 있는 다른 로컬에서 이어서 실행 예정.
 
 ### 23.4 피드백 3 — Combined GRPO 수식화
 
@@ -1494,6 +1502,6 @@ Combined GRPO(GRPO 스타일 MSE 회귀 + min-pos + top-K%/percentile 카테고�
 
 ### 23.5 다음 할 일 (우선순위 순)
 1. **Combined GRPO 손실 함수 수식화** (발표/논문에 필요, 아직 아무 데도 정리 안 돼 있음)
-2. RouterBench Perplexity FP `N_PROBES ∈ {32, 192, 1800}` 3점 스윕 실행 (데이터 확인 완료, 다른 로컬에서 실행)
+2. RouterBench Perplexity FP `N_PROBES ∈ {32, 192, 1800}` 스윕 실행 — **표본 수(N_PROBES)와 차원 수(N_DIMS)를 분리한 버전**을 메인으로(고정 32차원 + 표본만 1800으로 증가), probe=차원=1800인 버전은 negative control(랜덤 벡터)과 같이 보너스로. 데이터 가용성 확인 완료, GPU 있는 다른 로컬에서 실행 예정.
 3. InfoNCE 분자 sum/max/softmax 비교 실험 (`multi_positive_info_nce` 확장, 다른 로컬에서 실행)
 4. (참고, 보류) Ceiling FP를 192로 축소하는 실험 — 결과가 예측 가능해 우선순위 낮음, 필요시 나중에
