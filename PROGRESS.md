@@ -5,9 +5,11 @@
 
 ---
 
-## 0. TL;DR — 2026-08-14 세션 종료 시점, 다음은 여기서부터 (최신)
+## 0. TL;DR — 다음은 여기서부터 (최신, 정확한 날짜는 다음 세션에서 확인/수정할 것)
 
-**가장 최근 세션 요약은 20번 섹션(EmbedLLM 규모 "new LLMs" 프로토콜로 논문 Table 2와 직접 비교, GRPO 회귀 방식 검증) 참고 — 이 세션은 커밋만 되고 PROGRESS.md 서술이 누락돼 있던 걸 2026-08-15에 뒤늦게 정리함.** 그 이전은 19번 섹션(V1.3 LLM-judge 시도 → probe-count ablation 진단 → domain+difficulty 이중 라우팅 설계) 참고. 17번 섹션(LOO unseen-model 실험) 이전, EmbedLLM pool 규격화/v1.2 프로토타입은 18번 섹션 참고(별도 세션에서 병행 진행됨).
+**가장 최근 세션 요약은 23번 섹션(교수님 피드백 3건 — InfoNCE 분자 max/softmax, fair comparison 검증, Combined GRPO 수식화 — 및 대응 계획) 참고.** RESULTS_SUMMARY.md(Combined GRPO 확립, §21~22 결과물)를 정리해 보고한 뒤 받은 피드백. 핵심 결정: (1) Ceiling FP를 192로 축소하는 실험은 결과가 예측 가능해(이미 1,200개에서 all-seen 붕괴 확인됨) 보류, 대신 (2) CSCR류 Perplexity FP를 192/1800으로 확장하는 실험을 우선 진행 — 그 과정에서 `build_routerbench_perplexity_fp.py`의 `N_PROBES=32`가 프로젝트 표준(192)과 안 맞는 오래된 값이었다는 것도 발견함. (3) Combined GRPO 손실 함수 수식화는 아직 미착수, 다음 세션 최우선 과제.
+
+**23번 섹션 이전 최근 세션 요약은 20번 섹션(EmbedLLM 규모 "new LLMs" 프로토콜로 논문 Table 2와 직접 비교, GRPO 회귀 방식 검증) 참고 — 이 세션은 커밋만 되고 PROGRESS.md 서술이 누락돼 있던 걸 2026-08-15에 뒤늦게 정리함.** 그 이전은 19번 섹션(V1.3 LLM-judge 시도 → probe-count ablation 진단 → domain+difficulty 이중 라우팅 설계) 참고. 17번 섹션(LOO unseen-model 실험) 이전, EmbedLLM pool 규격화/v1.2 프로토타입은 18번 섹션 참고(별도 세션에서 병행 진행됨).
 
 **20번 섹션 한 줄 요약**: EmbedLLM(112개 모델) 규모, 논문의 실제 "new LLMs" 프로토콜(2/3 seen/1/3 unseen)로 CSCR 논문 Table 2(AUDC=0.4848)와 처음으로 직접 비교. GRPO 스타일 회귀 방식이 **seed 0에서는 논문을 이겼지만(AUDC 0.527)**, seed 1~3 추가하니 전부 논문보다 낮게 나와서 **4-seed 평균 AUDC=0.4772로 논문과 거의 대등(근소 열세)** — "단일 시드로 결론 내리면 안 된다"는 이 프로젝트의 반복된 교훈이 또 재현됨. kNN(학습 없음) 검증은 3-seed 전부 유의(Ceiling FP PCA-5 vs uniform, p<0.02) — EmbedLLM 규모에서도 신호 자체는 확인됨. Seed 4는 컴퓨터를 꺼야 해서 중단, 미완료.
 
@@ -1440,3 +1442,58 @@ CSCR은 여전히 이기지만(+1.3%) V2(0.5652, 111개 모델 기준)보다 **-
 **다음 세션 후보**: 공개 벤치마크 점수(gsm8k, mmlu 등 모델 카드에 이미 보고된 점수) 재사용 — probe 자체를 아예 안 돌리는 방향, 미착수.
 
 관련 신규 스크립트: `embedllm_build_pca_weighted_probe_fp_floorablation.py`(분리 실험, 폐기), `embedllm_prompt_level_pca_probe_selection.py`(프롬프트 단위 PCA, 폐기). `RESULTS_SUMMARY.md` §4.1 반영됨.
+
+---
+
+## 23. 교수님 피드백 반영 계획 — Fair comparison 검증 + Combined GRPO 수식화 (최신 세션, 날짜 확인 필요)
+
+`RESULTS_SUMMARY.md`(Combined GRPO 확립) 이후 교수님께 중간 결과 피드백을 받음. 세 가지 지적사항과, 이번 세션에서 정리한 대응 계획.
+
+### 23.1 받은 피드백 3가지
+1. **InfoNCE 분자를 sum 대신 max 또는 softmax로 바꿔볼 것.**
+2. **Fair comparison 문제**: CSCR은 probe를 192개만 쓰는데, 우리(Ceiling FP, 특히 V1.5/V1)는 1,800~1,920개를 씀 — 비교가 공정하지 않을 수 있음.
+3. **Combined GRPO의 손실 함수를 정식 수식으로 정리할 것** (발표/논문용).
+
+### 23.2 피드백 1 — InfoNCE 분자 sum→max/softmax
+
+**22.9/22.12에서 이미 제안했던 "적응적 trim(soft-min, learnable temperature)" 방향과 정확히 일치**하는 제안임을 확인. 현재 `multi_positive_info_nce`(20.4/21.2에서 이미 구현·테스트됨)의 분자는 정답 후보 전체를 sum으로 묶는데:
+- **Sum**(현재): outlier-drag에 취약(21.1)하지만 collapse엔 상대적으로 강함(21.2에서 확인 — 순수 contrastive/sum이 GRPO보다 collapse는 덜함)
+- **Max**: `exp(max_p sim_p / τ)` — MSE 회귀에서 이미 검증된 min-pos(21.4)의 InfoNCE 버전. outlier-drag에도 안 취약할 것으로 예상
+- **Softmax**(LogSumExp, 온도 τ₂): sum(τ₂→∞)과 max(τ₂→0) 사이를 잇는 연속적 중간 지점 — "학습 가능한 트림 강도" 아이디어의 구체화
+
+**가설**: max/softmax가 sum의 collapse-저항성과 min-pos의 outlier-drag-저항성을 동시에 잡을 수 있다면, 지금까지 나온 조합(GRPO+min-pos+catfilter) 이상으로 개선될 가능성. `multi_positive_info_nce`의 분자 계산부만 3버전으로 스위치 가능하게 구현하면 됨(min-pos 만들 때와 비슷한 작업량). **미착수.**
+
+### 23.3 피드백 2 — Fair comparison (probe 개수)
+
+**검토한 두 방향**:
+- (a) Ceiling FP를 192로 축소해서 비교
+- (b) CSCR류(Perplexity FP)를 1,800으로 확장해서 비교
+
+**(a)는 우선순위에서 제외하기로 결정** — 이미 있는 데이터로 결과가 어느 정도 예측됨:
+- EmbedLLM all-seen은 PCA-weighted 1,200개(바닥6)에서 이미 균등 1,920개(V1, 0.5481)보다 낮은 0.5393까지 떨어짐(§22.14) — 192는 그 6분의 1도 안 됨
+- LLMRouterBench(19.3, 22개 카테고리) 기준 "카테고리당 probe 2개"(44개 총량)는 p=0.107로 무의미했음 — EmbedLLM(80개 카테고리)에 192개를 균등 배분하면 카테고리당 2.4개로 밀도가 비슷해서, 유의성 확보가 어려울 것으로 예상
+- 즉 돌려봐도 "무너진다"는 예측 가능한 결과라 새로운 정보가 적음
+
+**(b)를 채택** — CSCR 쪽 예산을 늘리는 실험을 우선 진행하기로 함. 이유:
+1. 교수님이 실제로 주장한 명제("probe를 늘리면 CSCR도 좋아질 것")를 가장 직접적으로 검증함
+2. "우리 예산을 깎아도 우리가 무너진다"보다 "CSCR에 우리와 같거나 더 많은 예산을 줘도 못 따라온다"는 게 fairness 반박으로서 더 완결적임
+3. 결과 자체가 (a)와 달리 사전에 확정적이지 않은, 진짜 열린 질문임
+
+**부가 발견 (중요)**: `scripts/build_routerbench_perplexity_fp.py`의 `N_PROBES=32`가 git 최초 커밋(`68fc46b`)부터 고정된 값이고, 이후 한 번도 수정 안 됨. 이 프로젝트의 확정 표준은 N=192(9.1 섹션, 논문의 N=K 조건에 맞춰 의도적으로 선택)인데, 이 스크립트만 그 표준을 안 따르고 있었음. MixInstruct용 Colab 스크립트에 있던 "디버그용 32로 먼저 검증 → 실제 실행은 192로" 관례(원본 주석: "Start small to validate the full pipeline runs cleanly, then bump N up to ~150-192")가 이 RouterBench 스크립트에서는 반영이 안 된 것으로 추정 — **즉 22.8의 기존 Perplexity FP vs Ceiling FP 비교 자체가, 애초에 논문 기준보다도 6배 적은 예산에서 나온 결과였을 가능성.**
+
+**확정 계획**: `N_PROBES ∈ {32(현재/추정 버그), 192(논문·프로젝트 표준), 1800(Combined 예산)}` 3점 스윕.
+- **데이터 가용성 확인 완료**: RouterBench Set A(seed=42, 80%) = 29,197행, 11개 모델 응답 텍스트 100% 밀도 — 1,800개 추출에 전혀 문제없음(Set A의 6.2%만 사용)
+- **구현**: `build_routerbench_perplexity_fp.py`의 `N_PROBES` 상수만 바꾸면 나머지 로직(Set A 샘플링, GPT-2 채점, 저장) 그대로 재사용 가능. 코드 수정 거의 없음.
+- **예측**: 32→192 구간에서 이미 개선되면(reliability 문제였다는 뜻) 22.8 결과를 스스로 시정한 셈이 되어 신뢰도에 플러스. 192→1800까지 가도 여전히 Ceiling에 못 미치면, 격차가 probe 예산이 아니라 **FP가 capability 정보를 담고 있는가(validity)의 문제**라는 기존 결론(22.8)이 더 탄탄해짐.
+- unseen/all-seen 결과가 다를 가능성 있음 — probe 축소에 all-seen이 훨씬 민감했던 기존 패턴(22.7/22.13/22.15)을 감안하면, probe 증가의 효과도 all-seen 쪽이 더 클 수 있음(반대 방향 대칭) — 실행 후 비교 필요.
+- **미착수**, 다른 로컬(GPU 있는 환경)에서 실행 예정.
+
+### 23.4 피드백 3 — Combined GRPO 수식화
+
+Combined GRPO(GRPO 스타일 MSE 회귀 + min-pos + top-K%/percentile 카테고리 필터, §21~22에서 확립)를 정식 수식으로 문서화해야 함. **미착수** — 다음 세션 우선 과제.
+
+### 23.5 다음 할 일 (우선순위 순)
+1. **Combined GRPO 손실 함수 수식화** (발표/논문에 필요, 아직 아무 데도 정리 안 돼 있음)
+2. RouterBench Perplexity FP `N_PROBES ∈ {32, 192, 1800}` 3점 스윕 실행 (데이터 확인 완료, 다른 로컬에서 실행)
+3. InfoNCE 분자 sum/max/softmax 비교 실험 (`multi_positive_info_nce` 확장, 다른 로컬에서 실행)
+4. (참고, 보류) Ceiling FP를 192로 축소하는 실험 — 결과가 예측 가능해 우선순위 낮음, 필요시 나중에
