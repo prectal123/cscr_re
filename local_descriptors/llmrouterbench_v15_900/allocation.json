@@ -1,0 +1,23 @@
+{
+  "allocation": {
+    "aime": 48,
+    "arenahard": 133,
+    "arenahard_coding": 139,
+    "arenahard_creative_writing": 159,
+    "arenahard_math": 109,
+    "gpqa": 99,
+    "livecodebench": 117,
+    "livemathbench": 96
+  },
+  "total_probes": 900,
+  "importance": {
+    "aime": 0.17801831226980747,
+    "arenahard": 0.13540523896679804,
+    "arenahard_coding": 0.14671932756508071,
+    "arenahard_creative_writing": 0.19132875247948344,
+    "arenahard_math": 0.08973337655312232,
+    "gpqa": 0.07535204101710831,
+    "livecodebench": 0.10364454854766297,
+    "livemathbench": 0.07979840260093687
+  }
+}

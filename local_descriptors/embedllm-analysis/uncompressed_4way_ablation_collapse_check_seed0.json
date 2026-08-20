@@ -1,0 +1,54 @@
+{
+  "vanilla": {
+    "top3_share": 0.6856666666666666,
+    "n_used": 23,
+    "n_total": 35,
+    "rho": 0.44720152909220745,
+    "p": 0.007071739205970042,
+    "most_selected_model": "SUSTech__SUS-Chat-34B",
+    "most_selected_share": 0.42866666666666664,
+    "most_selected_true_acc": 0.538,
+    "highest_true_acc_model": "meta-llama__Meta-Llama-3-70B-Instruct",
+    "highest_true_acc": 0.605,
+    "highest_true_acc_model_share": 0.146
+  },
+  "catfilter": {
+    "top3_share": 0.8163333333333334,
+    "n_used": 15,
+    "n_total": 35,
+    "rho": 0.5150483578246657,
+    "p": 0.001545515934985045,
+    "most_selected_model": "SUSTech__SUS-Chat-34B",
+    "most_selected_share": 0.46066666666666667,
+    "most_selected_true_acc": 0.538,
+    "highest_true_acc_model": "meta-llama__Meta-Llama-3-70B-Instruct",
+    "highest_true_acc": 0.605,
+    "highest_true_acc_model_share": 0.21266666666666667
+  },
+  "minloss": {
+    "top3_share": 0.7603333333333333,
+    "n_used": 13,
+    "n_total": 35,
+    "rho": 0.6631758043904794,
+    "p": 1.4150158022040714e-05,
+    "most_selected_model": "meta-llama__Meta-Llama-3-70B-Instruct",
+    "most_selected_share": 0.25966666666666666,
+    "most_selected_true_acc": 0.605,
+    "highest_true_acc_model": "meta-llama__Meta-Llama-3-70B-Instruct",
+    "highest_true_acc": 0.605,
+    "highest_true_acc_model_share": 0.25966666666666666
+  },
+  "combined": {
+    "top3_share": 0.767,
+    "n_used": 9,
+    "n_total": 35,
+    "rho": 0.6686581861630061,
+    "p": 1.1312787431416422e-05,
+    "most_selected_model": "SUSTech__SUS-Chat-34B",
+    "most_selected_share": 0.408,
+    "most_selected_true_acc": 0.538,
+    "highest_true_acc_model": "meta-llama__Meta-Llama-3-70B-Instruct",
+    "highest_true_acc": 0.605,
+    "highest_true_acc_model_share": 0.19
+  }
+}

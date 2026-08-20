@@ -1,0 +1,228 @@
+{
+  "ckpt_path": "local_checkpoints\\embedllm-newllm-encoder-uncompressed-headline-seed0\\proj.pt",
+  "fp_dir": "local_descriptors\\embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-1800",
+  "top3_share": 0.767,
+  "chance_top3_share": 0.08571428571428572,
+  "n_models_used": 9,
+  "n_models_total": 35,
+  "spearman_rho_selection_vs_true_acc": 0.6686581861630061,
+  "spearman_p": 1.1312787431416422e-05,
+  "most_selected_model": "SUSTech__SUS-Chat-34B",
+  "most_selected_share": 0.408,
+  "most_selected_true_acc": 0.538,
+  "highest_true_acc_model": "meta-llama__Meta-Llama-3-70B-Instruct",
+  "highest_true_acc": 0.605,
+  "highest_true_acc_model_share": 0.19,
+  "per_model": [
+    {
+      "model": "SUSTech__SUS-Chat-34B",
+      "true_acc": 0.538,
+      "selected_count": 1224,
+      "selected_share": 0.408
+    },
+    {
+      "model": "meta-llama__Meta-Llama-3-70B-Instruct",
+      "true_acc": 0.605,
+      "selected_count": 570,
+      "selected_share": 0.19
+    },
+    {
+      "model": "dfurman__HermesBagel-34B-v0.1",
+      "true_acc": 0.5636666666666666,
+      "selected_count": 507,
+      "selected_share": 0.169
+    },
+    {
+      "model": "deepseek-ai__deepseek-llm-67b-chat",
+      "true_acc": 0.5266666666666666,
+      "selected_count": 327,
+      "selected_share": 0.109
+    },
+    {
+      "model": "CausalLM__34b-beta",
+      "true_acc": 0.579,
+      "selected_count": 217,
+      "selected_share": 0.07233333333333333
+    },
+    {
+      "model": "eren23__ogno-monarch-jaskier-merge-7b-OH-PREF-DPO",
+      "true_acc": 0.4696666666666667,
+      "selected_count": 74,
+      "selected_share": 0.024666666666666667
+    },
+    {
+      "model": "Nexusflow__Starling-LM-7B-beta",
+      "true_acc": 0.4866666666666667,
+      "selected_count": 73,
+      "selected_share": 0.024333333333333332
+    },
+    {
+      "model": "FelixChao__Scorpio-7B",
+      "true_acc": 0.4696666666666667,
+      "selected_count": 4,
+      "selected_share": 0.0013333333333333333
+    },
+    {
+      "model": "TheBloke__CodeLlama-70B-Instruct-AWQ",
+      "true_acc": 0.391,
+      "selected_count": 4,
+      "selected_share": 0.0013333333333333333
+    },
+    {
+      "model": "Neko-Institute-of-Science__pygmalion-7b",
+      "true_acc": 0.2643333333333333,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "Qwen__Qwen1.5-32B-Chat",
+      "true_acc": 0.5173333333333333,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "Plaban81__Moe-4x7b-math-reason-code",
+      "true_acc": 0.451,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "PharMolix__BioMedGPT-LM-7B",
+      "true_acc": 0.349,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "FelixChao__llama2-13b-math1.2",
+      "true_acc": 0.385,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "CorticalStack__pastiche-crown-clown-7b-dare-dpo",
+      "true_acc": 0.467,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "AdaptLLM__medicine-chat",
+      "true_acc": 0.368,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "augmxnt__shisa-base-7b-v1",
+      "true_acc": 0.20766666666666667,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "TigerResearch__tigerbot-13b-base",
+      "true_acc": 0.37433333333333335,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "SciPhi__SciPhi-Mistral-7B-32k",
+      "true_acc": 0.442,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "Qwen__Qwen1.5-7B-Chat",
+      "true_acc": 0.43466666666666665,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "deepseek-ai__deepseek-coder-1.3b-base",
+      "true_acc": 0.24333333333333335,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "codellama__CodeLlama-13b-Instruct-hf",
+      "true_acc": 0.31733333333333336,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "bigscience__bloom-7b1",
+      "true_acc": 0.2833333333333333,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "berkeley-nest__Starling-LM-7B-alpha",
+      "true_acc": 0.471,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "deepseek-ai__deepseek-coder-6.7b-instruct",
+      "true_acc": 0.29933333333333334,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "google__gemma-2b-it",
+      "true_acc": 0.25733333333333336,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "kevin009__llamaRAGdrama",
+      "true_acc": 0.455,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "ibivibiv__alpaca-dragon-72b-v1",
+      "true_acc": 0.19366666666666665,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "lmsys__vicuna-13b-v1.5-16k",
+      "true_acc": 0.4043333333333333,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "lmsys__vicuna-7b-v1.5-16k",
+      "true_acc": 0.364,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "meta-llama__LlamaGuard-7b",
+      "true_acc": 0.328,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "microsoft__phi-2",
+      "true_acc": 0.4046666666666667,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "mosaicml__mpt-30b-instruct",
+      "true_acc": 0.379,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "openchat__openchat_3.5",
+      "true_acc": 0.4693333333333333,
+      "selected_count": 0,
+      "selected_share": 0.0
+    },
+    {
+      "model": "rishiraj__CatPPT-base",
+      "true_acc": 0.48133333333333334,
+      "selected_count": 0,
+      "selected_share": 0.0
+    }
+  ]
+}
