@@ -1,27 +1,18 @@
-"""UNSEEN-protocol version of the probe-count sweep, requested after the
-all-seen sweep looked suspiciously flat/high even at very low probe counts
-(80 probes -> AUDC=0.58, barely below V2's full-data 0.5867). User's
-concern: with 111 known (seen) models and rich per-model FP vectors, a
-projection head could route well on all-seen just by learning a
-"category -> which of the 111 KNOWN models is good" lookup, without any
-real generalizable text-to-capability mapping -- which wouldn't need much
-probe data OR much real signal, since the target models are literally
-fixed and already known. That would explain the flatness (a lookup table
-needs little data), and predicts UNSEEN accuracy should look very
-different: usually lower, and possibly more probe-count-dependent, since
-a genuinely novel model has to be judged by proximity to seen models'
-patterns rather than looked up directly.
+"""UNSEEN probe-scale sweep with BOTH catfilter AND min(0.3,3) removed --
+plain MSE regression loss over all masked (cos_sim, target) pairs, no
+per-category positive-demotion, no top-k-of-positives emphasis. Tests
+whether the "AUDC is flat across probe count" finding is an artifact of
+COMPAR's specific loss engineering, or holds even under a vanilla loss
+(expected: holds, since the mechanism established this session --
+general-capability-axis dominance -- has nothing to do with loss choice,
+it's about what signal the FP itself contains).
 
 Protocol: standard "new LLM" unseen split (71 seen / 35 unseen models,
-`newllm_split*.json`). Projection head is trained using ONLY seen models'
-rows and seen models' FP vectors (never sees unseen models' labels/FP
-during training). Evaluated on Set B prompts against UNSEEN models' FP
-vectors only -- genuine zero-shot generalization test.
+`newllm_split*.json`). Projection head trained using ONLY seen models'
+rows/FP vectors; evaluated on Set B against UNSEEN models' FP only.
 
-No new FPs are built here -- reuses the exact FP directories already on
-disk from the all-seen compressed/uncompressed uniform sweeps (same
-probe-count points, same allocation), so results are directly comparable
-point-for-point against the all-seen numbers already in hand.
+Reuses FP directories already on disk (official uncompressed uniform-
+allocation sweep, 96->V2-full, plus 192).
 """
 import json
 import sys
@@ -50,7 +41,7 @@ BATCH_SIZE = 64
 LR = 1e-3
 HOLDOUT_FRAC = 0.15
 SEEDS = [0, 1, 2]
-PCT_CATFILTER = 0.3
+PCT_CATFILTER = 0.3  # catfilter ON (unchanged) -- isolating the min-criterion change only
 PCT_MINLOSS = 0.3
 K_CAP = 3
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -60,17 +51,9 @@ K = 20
 BANDIT_BETA = 0.000001
 COST_GRID_POINTS = 20
 
-# (label, fp_dir) -- official uncompressed pipeline only, reusing FPs already built on disk
+# (label, fp_dir, is_compressed) -- reusing FPs already built on disk
 POINTS = [
-    ("uncompressed-96", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-96"),
-    ("uncompressed-192", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-192"),
-    ("uncompressed-300", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-300"),
     ("uncompressed-1800", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-1800"),
-    ("uncompressed-4000", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-4000"),
-    ("uncompressed-8000", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-8000"),
-    ("uncompressed-15000", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-15000"),
-    ("uncompressed-25000", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-25000"),
-    ("V2-full-uncompressed", "embedllm-ceiling"),
 ]
 
 
@@ -81,6 +64,9 @@ def build_raw_category_accuracy(df, models, categories):
 
 
 def build_items(df, models, raw_cat_acc, category_to_idx, pct):
+    # catfilter ON (restored) -- keep only top-pct-by-category-track-record
+    # positives, matching the official headline pipeline. Isolates the
+    # min-selection-criterion change as the only variable in this test.
     name_to_idx = {n: i for i, n in enumerate(models)}
     texts, targets, masks = [], [], []
     for pid, grp in df.groupby("prompt_id", sort=False):
@@ -118,21 +104,30 @@ def build_items(df, models, raw_cat_acc, category_to_idx, pct):
     return texts, np.stack(targets), np.stack(masks)
 
 
-def minpctcap_loss(cos_sim, target, mask, pct=PCT_MINLOSS, k_cap=K_CAP):
+PCT_MINLOSS = 0.3
+K_CAP = 3
+
+
+def minpos_bydistance_loss(cos_sim, target, mask, pct=PCT_MINLOSS, k_cap=K_CAP):
+    """Min(0.3,3) variant: select top-k positives by RAW SIMILARITY
+    (nearest FP to the query embedding right now), not by smallest
+    error-to-own-target -- matches the user's original design intent."""
     pos_mask = (target > 0) & (mask > 0.5)
     neg_mask = (target <= 0) & (mask > 0.5)
     sq_err = (cos_sim - target) ** 2
 
-    pos_err = sq_err.masked_fill(~pos_mask, float("inf"))
+    sim_for_ranking = cos_sim.masked_fill(~pos_mask, float("-inf"))
     n_pos = pos_mask.sum(dim=1)
     has_pos = n_pos > 0
     k_eff = torch.clamp(torch.ceil(n_pos.float() * pct).long(), min=1, max=k_cap)
     k_eff = torch.minimum(k_eff, n_pos.clamp(min=1))
-    sorted_err, _ = pos_err.sort(dim=1)
-    idx = torch.arange(pos_err.size(1), device=pos_err.device).unsqueeze(0)
-    take_mask = (idx < k_eff.unsqueeze(1)) & has_pos.unsqueeze(1)
-    finite_sorted = torch.where(torch.isfinite(sorted_err), sorted_err, torch.zeros_like(sorted_err))
-    pos_sum = (finite_sorted * take_mask.float()).sum(dim=1)
+    sorted_sim, sorted_idx = sim_for_ranking.sort(dim=1, descending=True)
+    idx = torch.arange(sim_for_ranking.size(1), device=sim_for_ranking.device).unsqueeze(0)
+    take_mask_sorted = (idx < k_eff.unsqueeze(1)) & has_pos.unsqueeze(1)
+    sq_err_sorted = torch.gather(sq_err, 1, sorted_idx)
+    finite_sorted = torch.where(torch.isfinite(sq_err_sorted) & torch.isfinite(sorted_sim),
+                                 sq_err_sorted, torch.zeros_like(sq_err_sorted))
+    pos_sum = (finite_sorted * take_mask_sorted.float()).sum(dim=1)
     pos_topk_mean = pos_sum / k_eff.clamp(min=1).float()
     loss_pos = (pos_topk_mean * has_pos.float()).sum() / has_pos.float().sum().clamp(min=1)
 
@@ -185,7 +180,7 @@ def train_fast(seed, cls_all, targets, masks, E_t, hidden_size, tag):
             idx = order[start:start + BATCH_SIZE]
             q = F.normalize(proj(cls_tr[idx]), dim=-1)
             cos_sim = q @ E_t.T
-            loss = minpctcap_loss(cos_sim, tgt_tr[idx], msk_tr[idx])
+            loss = minpos_bydistance_loss(cos_sim, tgt_tr[idx], msk_tr[idx])
             loss.backward()
             opt.step()
             opt.zero_grad()
@@ -334,7 +329,7 @@ def main():
                                         for m in seed_metrics],
                            "costs_mean_curve": mean_costs.tolist(), "accs_mean_curve": mean_accs.tolist()}
 
-    out_path = ANALYSIS_DIR / "probe_scale_sweep_unseen_multiseed_withcurves_results.json"
+    out_path = ANALYSIS_DIR / "minbydistance_1800_unseen_results.json"
     json.dump(results, open(out_path, "w"), indent=2)
 
     print("\n" + "=" * 90)

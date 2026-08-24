@@ -1,27 +1,19 @@
-"""UNSEEN-protocol version of the probe-count sweep, requested after the
-all-seen sweep looked suspiciously flat/high even at very low probe counts
-(80 probes -> AUDC=0.58, barely below V2's full-data 0.5867). User's
-concern: with 111 known (seen) models and rich per-model FP vectors, a
-projection head could route well on all-seen just by learning a
-"category -> which of the 111 KNOWN models is good" lookup, without any
-real generalizable text-to-capability mapping -- which wouldn't need much
-probe data OR much real signal, since the target models are literally
-fixed and already known. That would explain the flatness (a lookup table
-needs little data), and predicts UNSEEN accuracy should look very
-different: usually lower, and possibly more probe-count-dependent, since
-a genuinely novel model has to be judged by proximity to seen models'
-patterns rather than looked up directly.
+"""Corrected model-count scalability sweep: decouples "which models are in
+the pool" from "which probes get selected for the FP".
 
-Protocol: standard "new LLM" unseen split (71 seen / 35 unseen models,
-`newllm_split*.json`). Projection head is trained using ONLY seen models'
-rows and seen models' FP vectors (never sees unseen models' labels/FP
-during training). Evaluated on Set B prompts against UNSEEN models' FP
-vectors only -- genuine zero-shot generalization test.
+Bug in the first attempt (embedllm_modelcount_sweep_allseen_multiseed.py):
+probe selection is variance-based (top-N prompts by cross-model label
+variance, per category) -- but that variance was computed over the
+CURRENTLY SAMPLED model subset, not the full pool. So changing which models
+get sampled also silently changed which probes got selected, confounding
+"model count" with "probe set" -- user's own diagnosis, confirmed by
+reading the code.
 
-No new FPs are built here -- reuses the exact FP directories already on
-disk from the all-seen compressed/uncompressed uniform sweeps (same
-probe-count points, same allocation), so results are directly comparable
-point-for-point against the all-seen numbers already in hand.
+Fix: select probes ONCE using the FULL 111-model pool's variance (same
+selection the n=111 headline config already uses), fixed for the entire
+sweep. For each (model_count, seed), only the SET OF MODELS the FP gets
+built for varies -- the probe prompts themselves never change. This
+isolates model count as the sole independent variable.
 """
 import json
 import sys
@@ -53,25 +45,61 @@ SEEDS = [0, 1, 2]
 PCT_CATFILTER = 0.3
 PCT_MINLOSS = 0.3
 K_CAP = 3
+MIN_PROBES = 1
+TARGET_TOTAL = 1800
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-CSCR_UNSEEN = 0.4848
+CSCR_ALLSEEN = 0.541
+EXCLUDE = {"JaeyeonKang__CCK_Asura_v1"}
 LAM_LIST = np.logspace(-4, 2, 20)
 K = 20
 BANDIT_BETA = 0.000001
 COST_GRID_POINTS = 20
 
-# (label, fp_dir) -- official uncompressed pipeline only, reusing FPs already built on disk
-POINTS = [
-    ("uncompressed-96", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-96"),
-    ("uncompressed-192", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-192"),
-    ("uncompressed-300", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-300"),
-    ("uncompressed-1800", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-1800"),
-    ("uncompressed-4000", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-4000"),
-    ("uncompressed-8000", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-8000"),
-    ("uncompressed-15000", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-15000"),
-    ("uncompressed-25000", "embedllm-ceiling-scalesweep-uniform-nocompress-minpctcap3-25000"),
-    ("V2-full-uncompressed", "embedllm-ceiling"),
-]
+MODEL_COUNTS = [15, 30, 50, 75, 111]
+
+
+def solve_allocation_uniform(cat_sizes, categories, target_total, min_n):
+    lo, hi = 0.0, float(max(cat_sizes[c] for c in categories))
+
+    def total_for_quota(q):
+        return sum(min(q, cat_sizes[c]) for c in categories)
+
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if total_for_quota(mid) < target_total:
+            lo = mid
+        else:
+            hi = mid
+    quota = hi
+    alloc = {c: max(min_n, int(round(min(quota, cat_sizes[c])))) for c in categories}
+    return alloc, sum(alloc.values())
+
+
+def select_probes_fixed(df_full, allocation, categories):
+    """Probe selection using the FULL pool's variance -- computed ONCE,
+    shared across every (model_count, seed) config in the sweep."""
+    per_prompt = df_full.groupby("prompt_id").agg(category=("category", "first"), var=("label", "var")).reset_index()
+    selected_ids = set()
+    for cat, grp in per_prompt.groupby("category"):
+        n = allocation.get(cat, MIN_PROBES)
+        top = grp.nlargest(n, "var")
+        selected_ids.update(top["prompt_id"].tolist())
+    return selected_ids
+
+
+def build_fp_from_fixed_probes(df_full, selected_ids, models, categories):
+    """FP construction restricted to the FIXED probe set -- only the model
+    subset varies, never which prompts were chosen as probes."""
+    sub = df_full[df_full["prompt_id"].isin(selected_ids) & df_full["model_name"].isin(models)]
+    pivot = sub.pivot_table(index="model_name", columns="category", values="label", aggfunc="mean")
+    pivot = pivot.reindex(index=models, columns=categories)
+    raw = pivot.to_numpy()
+    col_mean = np.nanmean(raw, axis=0, keepdims=True)
+    raw = np.where(np.isnan(raw), col_mean, raw)
+    pool_mean = raw.mean(axis=0, keepdims=True)
+    centered = raw - pool_mean
+    E = centered / (np.linalg.norm(centered, axis=1, keepdims=True) + 1e-12)
+    return E.astype(np.float32)
 
 
 def build_raw_category_accuracy(df, models, categories):
@@ -82,9 +110,8 @@ def build_raw_category_accuracy(df, models, categories):
 
 def build_items(df, models, raw_cat_acc, category_to_idx, pct):
     name_to_idx = {n: i for i, n in enumerate(models)}
-    texts, targets, masks = [], [], []
+    prompt_ids, targets, masks = [], [], []
     for pid, grp in df.groupby("prompt_id", sort=False):
-        text = grp["prompt"].iloc[0]
         category = grp["category"].iloc[0]
         cat_idx = category_to_idx.get(category)
         labels = np.full(len(models), np.nan, dtype=np.float32)
@@ -112,10 +139,10 @@ def build_items(df, models, raw_cat_acc, category_to_idx, pct):
             demoted = np.setdiff1d(pos_idx, keep_pos)
             keep_mask[demoted] = False
 
-        texts.append(text)
+        prompt_ids.append(pid)
         targets.append(target)
         masks.append(keep_mask.astype(np.float32))
-    return texts, np.stack(targets), np.stack(masks)
+    return prompt_ids, np.stack(targets), np.stack(masks)
 
 
 def minpctcap_loss(cos_sim, target, mask, pct=PCT_MINLOSS, k_cap=K_CAP):
@@ -242,7 +269,10 @@ def audc_qnc_peak(costs, accs):
     c, a = costs[order], accs[order]
     grid = build_cost_grid(c, N_grid=COST_GRID_POINTS)
     a_grid = interp_to_grid(c, a, grid)
-    audc = np.trapezoid(a_grid, grid) / (grid[-1] - grid[0])
+    denom = grid[-1] - grid[0]
+    if not np.isfinite(denom) or denom <= 1e-12 or not np.all(np.isfinite(a_grid)):
+        return {"audc": float("nan"), "qnc": float(c[np.argmax(a)]), "peak": float(a.max())}
+    audc = np.trapezoid(a_grid, grid) / denom
     peak_idx = np.argmax(a)
     return {"audc": float(audc), "qnc": float(c[peak_idx]), "peak": float(a[peak_idx])}
 
@@ -251,8 +281,16 @@ def main():
     print("Loading EmbedLLM train.csv...", flush=True)
     f_train = hf_hub_download(repo_id="RZ412/EmbedLLM", repo_type="dataset", filename="train.csv")
     df = pd.read_csv(f_train, usecols=["prompt_id", "model_name", "category", "label", "prompt"])
-    categories = sorted(df["category"].unique().tolist())
+    all_models = sorted([m for m in df["model_name"].unique() if m not in EXCLUDE])
+    categories = sorted(df["category"].unique())
     category_to_idx = {c: i for i, c in enumerate(categories)}
+    cat_sizes = df.drop_duplicates("prompt_id").groupby("category").size().to_dict()
+    print(f"{len(all_models)} candidate models, {len(categories)} categories", flush=True)
+
+    allocation, actual_total = solve_allocation_uniform(cat_sizes, categories, TARGET_TOTAL, MIN_PROBES)
+    selected_probe_ids = select_probes_fixed(df, allocation, categories)
+    print(f"Fixed probe set selected ONCE (full-111 variance): {len(selected_probe_ids)} probes "
+          f"(target={TARGET_TOTAL}, actual_alloc_sum={actual_total})", flush=True)
 
     print(f"Loading frozen MiniLM base (device={DEVICE})...", flush=True)
     from transformers import AutoModel, AutoTokenizer
@@ -263,87 +301,76 @@ def main():
         p.requires_grad = False
     hidden_size = base_model.config.hidden_size
 
-    # per-seed: seen/unseen split, seen-only training data + cached embeddings
-    # (shared across ALL points for a given seed -- text/targets don't depend on FP)
-    seed_cache = {}
-    for seed in SEEDS:
-        split_path = ANALYSIS_DIR / ("newllm_split.json" if seed == 0 else f"newllm_split_seed{seed}.json")
-        split = json.load(open(split_path, encoding="utf-8"))
-        seen_models, unseen_models = split["seen"], split["unseen"]
-        raw_cat_acc = build_raw_category_accuracy(df, seen_models, categories)
-        texts, targets, masks = build_items(df, seen_models, raw_cat_acc, category_to_idx, PCT_CATFILTER)
-        print(f"seed={seed}: seen={len(seen_models)} unseen={len(unseen_models)} rows={len(texts)}", flush=True)
-        t0 = time.time()
-        cls_all = precompute_cls(texts, tokenizer, base_model)
-        print(f"  cached in {time.time()-t0:.1f}s -> {cls_all.shape}", flush=True)
-
-        dataset = load_embedllm("test", candidates=unseen_models)
-        eval_texts = [ex["prompt"] for ex in dataset]
-        label_maps = [ex["label_map"] for ex in dataset]
-        t0 = time.time()
-        cls_setB_unseen = precompute_cls(eval_texts, tokenizer, base_model)
-        print(f"  Set B unseen-only ({len(eval_texts)} rows) cached in {time.time()-t0:.1f}s", flush=True)
-
-        seed_cache[seed] = dict(seen_models=seen_models, unseen_models=unseen_models,
-                                 cls_all=cls_all, targets=targets, masks=masks,
-                                 cls_setB_unseen=cls_setB_unseen, label_maps=label_maps)
+    print("Precomputing frozen CLS embeddings ONCE for every unique train prompt...", flush=True)
+    uniq = df.drop_duplicates("prompt_id")[["prompt_id", "prompt"]].reset_index(drop=True)
+    pid_to_row = {pid: i for i, pid in enumerate(uniq["prompt_id"])}
+    t0 = time.time()
+    cls_cache = precompute_cls(uniq["prompt"].tolist(), tokenizer, base_model)
+    print(f"  done in {time.time()-t0:.1f}s -> {cls_cache.shape} ({len(uniq)} unique prompts)", flush=True)
 
     results = {}
-    for label, fp_dir_name in POINTS:
-        fp_dir = Path(f"local_descriptors/{fp_dir_name}")
-        print(f"\n{'#'*70}\n{label} ({fp_dir_name})\n{'#'*70}", flush=True)
-
-        seed_metrics = []
+    for n_models in MODEL_COUNTS:
+        results[str(n_models)] = {"per_seed": [], "costs_mean_curve": None, "accs_mean_curve": None}
         seed_costs, seed_accs = [], []
         for seed in SEEDS:
-            c = seed_cache[seed]
-            seen_models, unseen_models = c["seen_models"], c["unseen_models"]
+            rng = np.random.RandomState(seed * 1000 + n_models)
+            if n_models >= len(all_models):
+                models = all_models
+            else:
+                models = sorted(rng.choice(all_models, size=n_models, replace=False).tolist())
+            print(f"\n{'#'*70}\nn_models={n_models} seed={seed} (sampled {len(models)} models)\n{'#'*70}", flush=True)
 
-            E_seen = np.stack([np.load(fp_dir / f"{m}.npy") for m in seen_models]).astype(np.float32)
-            E_seen_t = torch.from_numpy(E_seen).float().to(DEVICE)
-            E_seen_t = E_seen_t / (E_seen_t.norm(dim=1, keepdim=True) + 1e-9)
+            df_sub = df[df["model_name"].isin(models)]
+            raw_cat_acc = build_raw_category_accuracy(df_sub, models, categories)
+            prompt_ids, targets, masks = build_items(df_sub, models, raw_cat_acc, category_to_idx, PCT_CATFILTER)
+            row_idx = np.array([pid_to_row[pid] for pid in prompt_ids])
+            cls_all = cls_cache[row_idx]
+            print(f"  {len(prompt_ids)} usable rows for this subset", flush=True)
 
-            proj = train_fast(seed, c["cls_all"], c["targets"], c["masks"], E_seen_t, hidden_size,
-                               f"{label}-seed{seed}")
+            E = build_fp_from_fixed_probes(df, selected_probe_ids, models, categories)
+            print(f"  FP built from FIXED probe set, dim={E.shape[1]}", flush=True)
 
-            E_unseen = np.stack([np.load(fp_dir / f"{m}.npy") for m in unseen_models]).astype(np.float32)
-            E_unseen_norm = E_unseen / (np.linalg.norm(E_unseen, axis=1, keepdims=True) + 1e-12)
-            costs_unseen = np.array([compute_cost(m, 0, cost_type="n_params") for m in unseen_models], dtype=np.float32)
+            E_t = torch.from_numpy(E).float().to(DEVICE)
+            E_t = E_t / (E_t.norm(dim=1, keepdim=True) + 1e-9)
+            E_norm = E / (np.linalg.norm(E, axis=1, keepdims=True) + 1e-12)
+
+            proj = train_fast(seed, cls_all, targets, masks, E_t, hidden_size, f"n{n_models}-seed{seed}")
+
+            dataset = load_embedllm("test", candidates=models)
+            eval_texts = [ex["prompt"] for ex in dataset]
+            label_maps = [ex["label_map"] for ex in dataset]
+            cls_setB = precompute_cls(eval_texts, tokenizer, base_model)
+            costs = np.array([compute_cost(m, 0, cost_type="n_params") for m in models], dtype=np.float32)
 
             with torch.no_grad():
-                embeds = F.normalize(proj(torch.from_numpy(c["cls_setB_unseen"]).float().to(DEVICE)),
-                                      dim=-1).cpu().numpy()
-            sims = embeds @ E_unseen_norm.T
-            knn_costs, knn_accs = knn_curve(sims, unseen_models, c["label_maps"], costs_unseen, LAM_LIST)
+                embeds = F.normalize(proj(torch.from_numpy(cls_setB).float().to(DEVICE)), dim=-1).cpu().numpy()
+            sims = embeds @ E_norm.T
+            knn_costs, knn_accs = knn_curve(sims, models, label_maps, costs, LAM_LIST)
             m = audc_qnc_peak(knn_costs, knn_accs)
-            seed_metrics.append(m)
+            print(f"  [n_models={n_models} seed={seed}] AUDC={m['audc']:.4f} Peak={m['peak']:.4f} "
+                  f"({'BEATS' if m['audc'] > CSCR_ALLSEEN else 'below'} CSCR {CSCR_ALLSEEN})", flush=True)
+            results[str(n_models)]["per_seed"].append({"seed": seed, "n_models_actual": len(models), **m})
             seed_costs.append(knn_costs)
             seed_accs.append(knn_accs)
-            print(f"  [{label} seed={seed}] AUDC={m['audc']:.4f} Peak={m['peak']:.4f} QNC={m['qnc']:.4f} "
-                  f"({'BEATS' if m['audc'] > CSCR_UNSEEN else 'below'} CSCR-unseen {CSCR_UNSEEN})", flush=True)
 
-        audcs = np.array([m["audc"] for m in seed_metrics])
-        peaks = np.array([m["peak"] for m in seed_metrics])
         mean_costs = np.mean(seed_costs, axis=0)
         mean_accs = np.mean(seed_accs, axis=0)
-        print(f"  [{label}] MEAN AUDC={audcs.mean():.4f} (std={audcs.std():.4f}) "
-              f"Peak={peaks.mean():.4f} (std={peaks.std():.4f})", flush=True)
-        results[label] = {"fp_dir": fp_dir_name, "audc_mean": float(audcs.mean()), "audc_std": float(audcs.std()),
-                           "peak_mean": float(peaks.mean()), "peak_std": float(peaks.std()),
-                           "per_seed": [{"audc": float(m["audc"]), "peak": float(m["peak"]), "qnc": float(m["qnc"])}
-                                        for m in seed_metrics],
-                           "costs_mean_curve": mean_costs.tolist(), "accs_mean_curve": mean_accs.tolist()}
+        results[str(n_models)]["costs_mean_curve"] = mean_costs.tolist()
+        results[str(n_models)]["accs_mean_curve"] = mean_accs.tolist()
+        audcs = [r["audc"] for r in results[str(n_models)]["per_seed"] if np.isfinite(r["audc"])]
+        print(f"\n[n_models={n_models}] MEAN AUDC={np.mean(audcs):.4f} (std={np.std(audcs):.4f}) "
+              f"n_valid={len(audcs)}/{len(SEEDS)}", flush=True)
 
-    out_path = ANALYSIS_DIR / "probe_scale_sweep_unseen_multiseed_withcurves_results.json"
-    json.dump(results, open(out_path, "w"), indent=2)
+        out_path = ANALYSIS_DIR / "modelcount_sweep_allseen_withcurves_results.json"
+        json.dump(results, open(out_path, "w"), indent=2)
 
     print("\n" + "=" * 90)
-    print("PROBE SCALE SWEEP -- UNSEEN PROTOCOL (min(0.3,3), 3 seeds)")
+    print("MODEL-COUNT SCALABILITY SWEEP (FIXED PROBE SET) -- All-seen, headline pipeline")
     print("=" * 90)
-    for label, _ in POINTS:
-        r = results[label]
-        print(f"  {label:<24s}: AUDC={r['audc_mean']:.4f} (std={r['audc_std']:.4f})")
-    print(f"\nSaved -> {out_path}")
+    for n_models in MODEL_COUNTS:
+        audcs = [r["audc"] for r in results[str(n_models)]["per_seed"] if np.isfinite(r["audc"])]
+        print(f"  n_models={n_models:>4d}: AUDC={np.mean(audcs):.4f} (std={np.std(audcs):.4f}) n_valid={len(audcs)}/{len(SEEDS)}")
+    print(f"\nSaved -> {ANALYSIS_DIR / 'modelcount_sweep_allseen_withcurves_results.json'}")
 
 
 if __name__ == "__main__":

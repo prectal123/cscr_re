@@ -1,0 +1,34 @@
+{
+  "vanilla": {
+    "n_multipos_queries": 2647,
+    "outlier_drag_corr": -0.14918920063128463,
+    "outlier_drag_p": 1.2076998104554744e-14,
+    "mislanding_rate": 0.668303740083113,
+    "top3_share": 0.6856666666666666,
+    "n_used": 23
+  },
+  "catfilter": {
+    "n_multipos_queries": 2647,
+    "outlier_drag_corr": -0.09284092150918762,
+    "outlier_drag_p": 1.712826359770815e-06,
+    "mislanding_rate": 0.5323007177937288,
+    "top3_share": 0.8163333333333334,
+    "n_used": 15
+  },
+  "minloss": {
+    "n_multipos_queries": 2647,
+    "outlier_drag_corr": 0.013382186330423968,
+    "outlier_drag_p": 0.49132321247019894,
+    "mislanding_rate": 0.5406120136003022,
+    "top3_share": 0.7603333333333333,
+    "n_used": 13
+  },
+  "combined": {
+    "n_multipos_queries": 2647,
+    "outlier_drag_corr": -0.040338567067138585,
+    "outlier_drag_p": 0.037963977068096615,
+    "mislanding_rate": 0.5440120891575368,
+    "top3_share": 0.767,
+    "n_used": 9
+  }
+}

@@ -2144,3 +2144,76 @@ n=111 seed=0으로 sanity check(0.5767, 기존 헤드라인 seed0=0.5760과 거�
 메인 발표 9단계(동기→방법론→헤드라인→Fairness→스케일링→FP×Loss 2x2→분리도 메커니즘→TAR의 역할→한계) + Appendix 항목(negative control, ablation 세부, collapse 진단, 300-probe 조사, 논문 대조, K-Means) 구조로 정리 — 전체 내용은 별도 파일 `Presentation_Outline.md`에 저장(주말 자료 제작용).
 
 **미결정 항목 2개**: (1) Mixed-pool 한계(unseen_only 쿼리 0% 적중, §26.7) 메인/Appendix/비공개 중 어디로 갈지, (2) Model-count 스윕(§29, n=20 dip 미해결·fixed-probes 본 실행 미완료) 이번 발표에 넣을지 다음으로 미룰지 — `Presentation_Outline.md` 하단에 플래그해둠.
+
+## 31. Catfilter/min(0.3,3) 메커니즘 직접 진단 — outlier-drag vs query-mislanding (2026-08-20)
+
+**동기**: min(0.3,3)이 진짜 outlier-drag를 잡기 위한 설계였는지, 무압축(80차원) 전환 후에도 그 근거가 여전히 유효한지 불확실해짐(§25 압축 제거 이후 재검증한 적 없었음). "catfilter=outlier-drag 개선, min=query-mislanding 개선"이라는 역할 분담 가설을 직접 측정.
+
+`scripts/embedllm_outlierdrag_mislanding_4way_check.py` — §27.2와 동일한 4-way(vanilla/catfilter만/min만/combined) 학습 셋업 재사용, sim 행렬에서 두 지표를 사후 계산(추가 forward pass 없음): (1) outlier-drag corr = spearman(정답 후보 spread, 착지점의 최근접 실제 모델까지 거리) — 원래 outlier-drag 진단(`embedllm_outlier_blend_check.py`, 압축 시절)과 유사하지만 **타겟 구성 단계가 아니라 학습 완료 후 실제 착지점**을 재는 다른 지표임(직접 비교 아님, 주의). (2) mislanding_rate = 정답 후보가 2개 이상인 쿼리 중, 착지한 모델이 (true_acc 기준) 최선이 아닌 비율.
+
+**결과 (seed=0, 2647개 multi-positive 쿼리)**:
+
+| variant | outlier_drag_corr | p | mislanding_rate |
+|---|---|---|---|
+| vanilla | −0.1492 | <0.0001 | 0.668(최악) |
+| catfilter | −0.0928 | <0.0001 | 0.532 |
+| minloss | +0.0134 | 0.49(무의미) | 0.541 |
+| combined | −0.0403 | 0.038 | 0.544 |
+
+**해석**: (1) outlier-drag corr가 전 variant에서 음수/무의미 — "spread↑→drag↑"라는 원 가설과 반대 방향. 다만 이 지표가 원래 진단(타겟 구성 시점)과 다른 것(학습 후 실제 착지점)을 재고 있어 직접 반박은 아님, 애매하게 남음. (2) mislanding_rate는 **catfilter만·min만이 거의 동일하게(0.53대) vanilla(0.668) 대비 개선되고, 둘을 합쳐도(combined 0.544) 추가 이득이 없음** — "각자 다른 문제를 전담한다"는 원래 서사와 다르게, 사실상 겹치는 효과.
+
+**최종 결론(사용자 확정)**: catfilter/min을 "outlier-drag 전담/mislanding 전담"으로 깔끔히 나누는 서사는 오늘 증거로 뒷받침되지 않음 — 대신 §28.4(분산 2.4배 감소)와 오늘 결과(mislanding 중복 개선)를 합쳐 **"둘 다 probe/FP 저해상도로 인한 타겟 노이즈를 줄이는, 방식만 다른 동일 계열의 개입"**으로 재정의. 시간 제약상 새 휴리스틱 탐색은 보류, TAR는 현행 그대로 유지 — 정확한 메커니즘 분해보다 "노이즈 저감 장치"라는 느슨하지만 정직한 설명으로 발표.
+
+결과 파일: `local_descriptors/embedllm-analysis/outlierdrag_mislanding_4way_check_seed0.json`
+
+## 32. 발표용 결과표 8종 제작 + LLMRouterBench Unseen CSCR 기준선 신규 구축 (2026-08-21~24)
+
+**동기**: 고려대 세미나 최종 발표(`COMPAR Final.pdf`)에 넣을 시각 자료를 기존 "Table 디자인 정책"(진남색 헤더 + 흰 볼드 텍스트, 본문은 항상 흰 배경·무강조, [[feedback_plain_white_tables]])을 그대로 따라 하나씩 제작. 표마다 스크립트 → PNG 1:1 매핑.
+
+| 표/차트 | 스크립트 | 산출물 | 내용 |
+|---|---|---|---|
+| 헤드라인 결과표 | `scripts/plot_table_headline.py` | `local_descriptors/embedllm-analysis/table_headline.png` | EmbedLLM All-seen/Unseen(1800·Full) + RouterBench All-seen(Full) + LLMRouterBench All-seen/Unseen(Full), 총 7행. vs CSCR 마진 전부 명시 |
+| Fairness 표 | `scripts/plot_table_fairness.py` | `local_descriptors/embedllm-analysis/table_fairness.png` | COMPAR을 CSCR 논문 예산(192-probe)으로 축소해도 이기는지 + CSCR을 COMPAR 예산(1800-probe)으로 늘려도 안 느는지, 역방향 fairness 행 포함 |
+| FP×Loss 2x2 그리드 (RouterBench) | `scripts/plot_table_2x2grid.py` | `local_descriptors/embedllm-analysis/table_2x2_routerbench.png` | CSCR-FP/Ceiling-FP × CSCR-loss/TAR-loss 인과 분해 |
+| FP×Loss 2x2 그리드 (EmbedLLM) | `scripts/plot_table_2x2grid.py` | `local_descriptors/embedllm-analysis/table_2x2_embedllm.png` | 동일 구조, EmbedLLM은 Perplexity 데이터가 없어 CSCR-FP 열이 구조적으로 N/A |
+| 전 조건 마진 요약 (막대, 초판) | `scripts/plot_margin_summary.py` | `local_descriptors/embedllm-analysis/margin_summary.png` | COMPAR-vs-CSCR 마진 10개 조건 내림차순 — 이후 §아래 사유로 side-by-side로 대체 |
+| COMPAR vs CSCR 나란히 비교 (최종) | `scripts/plot_sidebyside_summary.py` | `local_descriptors/embedllm-analysis/sidebyside_summary.png` | 마진(%)만 보여주면 LLMRouterBench Unseen의 +26.3%가 시드 편차 때문인지 실제 효과인지 안 보인다는 지적(사용자) → 실측 AUDC 값을 COMPAR(남색)/CSCR(빨강) 나란히 + std 에러바로 교체, 큰 편차가 있는 조건은 에러바가 겹치는 걸 그대로 노출 |
+| Appendix — Collapse 진단 | `scripts/plot_table_collapse.py` | `local_descriptors/embedllm-analysis/table_collapse.png` | §27.2 4-way 붕괴 실험 + §31 outlier-drag/mislanding 진단을 합친 표 |
+| Appendix — K-Means FP | `scripts/plot_table_kmeans.py` | `local_descriptors/embedllm-analysis/table_kmeans.png` | §29 카테고리 라벨 없는 상황 대응(K=80) vs 실제 카테고리 vs CSCR |
+| Appendix — Negative Control | `scripts/plot_table_negcontrol.py` | `local_descriptors/embedllm-analysis/table_negcontrol.png` | 랜덤 probe/노이즈 FP/셔플 FP 대조군. **최종 포함 여부 미확정** — 사용자가 직접 판단하기로 함 |
+
+**LLMRouterBench Unseen CSCR 기준선 신규 구축**: 헤드라인 표의 LLMRouterBench Unseen 행에 비교할 CSCR 재현값이 그동안 없었음(All-seen만 있었음, §28). `scripts/llmrouterbench/cscrfp_cscrloss_unseen_multiseed.py`를 새로 작성 — `fair_probe900_multiseed.py`의 `make_split`/`build_rows_with_dataset`/`build_cost_dict`/`build_setB_eval`/`build_items`와 `routerbench_fair_probe1800_multiseed.py`의 `precompute_cls`/`train_cscr_fast`/`eval_proj`를 재사용해 CSCR-loss + Perplexity-FP를 Unseen 프로토콜로 3시드 재현.
+
+결과: seed0=0.5831, seed1=0.5751, seed2=0.4375 → **mean=0.5319 ± 0.0669** (시드 편차 큼 — 어느 11개 모델이 unseen으로 빠지느냐에 따라 크게 갈림). 이 값이 헤드라인 표의 LLMRouterBench Unseen 행 "vs CSCR +26.3%*" 마진의 기준선이 됨 (각주로 "공식 논문 기준선 아님, 900-probe 자체 재현" 명시). 결과 파일: `local_descriptors/llmrouterbench_v15_900/cscrfp_cscrloss_unseen_results.json`.
+
+## 33. Deferral Curve 최종본 재정비 — Probe-count / Model-pool-size(Unseen+All-seen) sweep (2026-08-21~24)
+
+**동기**: 기존 폴더에 있던 deferral curve 이미지들(`unseen_probe_sweep_deferral_curves.png`, `probe_scale_sweep_uniform_deferral_curves.png` 등)을 다시 열어보니 (1) 폐기된 PCA-5 압축 라인이 섞여 있거나 (2) 범례의 AUDC 값이 현재 확정된 공식 표 수치와 어긋남(예: 구버전 1760-probe=0.547 vs 현재 헤드라인 1800-probe=0.5787) — §25 무압축 전환 이전의 낡은 산출물로 판단, 재사용 대신 현재 데이터로 전부 재실행하기로 함.
+
+**Probe-count sweep (Unseen)**: `scripts/embedllm_probe_scale_sweep_unseen_multiseed_withcurves.py`의 POINTS 리스트를 정리(폐기된 PCA-5 포인트 제거, 192-probe 포인트 추가)하고 재실행 — 96/192/300/1800/4000/8000/15000/25000/V2-full(29673) 9개 포인트, 3시드. 이전 세션에서 스모크 테스트가 같은 출력 파일명을 덮어써 96-probe만 남았던 문제(사고)를 이번엔 깨끗한 재실행으로 해결. AUDC가 공식 표(1800-probe=0.5232 등)와 정확히 일치함을 확인. 결과: `local_descriptors/embedllm-analysis/probe_scale_sweep_unseen_multiseed_withcurves_results.json` → `scripts/plot_deferral_probecount_unseen.py` → `local_descriptors/embedllm-analysis/deferral_probecount_unseen_FINAL.png`.
+
+**Model-pool-size sweep (Unseen + All-seen, 커브 포함)**: 기존 §29 스윕에는 커브 데이터가 저장되어 있지 않아 신규 스크립트 작성.
+- `scripts/embedllm_modelcount_sweep_unseen_withcurves_multiseed.py` — fixed-probe 설계(probe 선택은 전체 111개 모델 분산으로 1회 고정, FP를 받는 모델 집합만 변화), MODEL_COUNTS=[15,30,50,75,111], SEEDS=[0,1,2], seen(2/3)/unseen(1/3) 분할.
+  결과: n=15 0.4752±0.047 / n=30 0.4942±0.005 / n=50 0.5160±0.017 / n=75 0.5116±0.009 / n=111 **0.5215±0.003** — 111에서 계속 상승.
+- `scripts/embedllm_modelcount_sweep_allseen_withcurves_multiseed.py` — 동일 MODEL_COUNTS/SEEDS로 All-seen 버전(§29 결과 재확인 + 커브 저장).
+  결과: n=15 0.5141±0.038 / n=30 0.5409±0.015 / n=50 0.5662±0.016 / n=75 **0.5833±0.007(피크)** / n=111 0.5793±0.003(하락) — §29의 "75에서 피크, 111에서 하락" 패턴 재확인.
+- 결과 파일: `local_descriptors/embedllm-analysis/modelcount_sweep_unseen_withcurves_results.json`, `.../modelcount_sweep_allseen_withcurves_results.json`
+- 플롯: `scripts/plot_deferral_modelcount_unseen.py` → `local_descriptors/embedllm-analysis/deferral_modelcount_unseen_FINAL.png` (Unseen 단독), `scripts/plot_deferral_modelcount_sidebyside.py` → `local_descriptors/embedllm-analysis/deferral_modelcount_sidebyside_FINAL.png` (All-seen vs Unseen 나란히 — 75-line이 All-seen에서만 111-line 위에 있는 걸 한눈에 보여주는 핵심 비주얼)
+
+**해석 논의**: 사용자가 처음엔 "모델 풀이 넓을수록 정확도가 오르는 건 당연하다(선택지가 많아지니까), 가치 있는 관찰이 아니다"라고 지적 → All-seen 스윕이 정확히 반례(75에서 피크, 111에서 하락 — 선택지가 늘어도 안 좋아짐, §7 분리도-기하 논리와 동일 메커니즘)라는 걸 근거로 반박, Unseen의 단조 상승은 "선택지 증가"가 아니라 "학습 데이터 다양성 증가로 인한 판별력 향상"이라는 실질적 발견임을 설명 → 사용자 수긍("아 그렇군.. 이해했어"). CSCR과의 스케일링 비교는 EmbedLLM에 Perplexity FP 자체가 없어 구조적으로 불가능함을 설명, 사용자도 추가 요청 없이 수락.
+
+## 34. Min(0.3,3) "raw-distance" 대안 설계 구현 및 검증 (2026-08-21~22)
+
+**동기**: §22에서 확정한 Min(0.3,3)은 "각 모델 자신의 Z-score 타겟에 가장 가깝게(오차 최소) 맞춘 top-k"를 고르는데, 사용자가 원래 의도했던 설계는 "정답 라벨 모델들 중 쿼리 임베딩과 실제로 가장 가까운(원거리 최소) top-k"였음 — 두 설계가 다르다는 걸 뒤늦게(발표 직전) 발견. 이진(0/1) 라벨 체계에서는 같은 정답(positive) 모델들이 전부 동일한 Z-score 타겟을 공유하므로, "타겟-오차 최소"와 "원거리 최소"가 유사(undershoot 영역에서는 사실상 동일, overshoot 영역에서만 갈림)하다는 걸 사용자가 직접 수식으로 재도출 — 그래도 실제로 성능 차이가 나는지 빠르게 실증 검증하기로 함("한번 구현 바꿔서 다시 해볼 수 있을까? 빠르게").
+
+`scripts/embedllm_minbydistance_1800_unseen_multiseed.py` — 기존 vanilla-loss unseen sweep 스크립트를 복사, catfilter의 카테고리 트랙레코드 강등 로직을 `build_items`에 복원, POINTS를 `uncompressed-1800` 하나로 축소, `minpos_bydistance_loss` 함수로 Min 선택 기준을 교체(정답 후보 중 raw cosine similarity 상위 top-k로 선택, 오차가 아니라 거리 기준). EmbedLLM Unseen 1800-probe 헤드라인 조건에서 3시드 실행.
+
+**결과**: raw-distance 방식 mean=**0.5257±0.0071** (seed 0.5312/0.5302/0.5156) vs 기존 error-to-target 방식 mean=0.5232±0.0053 (seed 0.5261/0.5278/0.5158) — 차이 +0.0025, 노이즈 범위 내. 수학적 예측(undershoot 영역이 실전에서 지배적)과 정확히 부합.
+
+**최종 결정(사용자)**: 시간 제약상("다시 다 돌리려면 한참 걸릴텐데") 전면 재검증/전환은 하지 않고 현행 구현(error-to-target) 유지 — "일단 두고보자구"로 마무리, 디펜스 질문 대비용으로 두 설계가 이진 라벨 하에서 수학적으로 거의 동치임을 설명할 수 있는 근거만 확보. 결과 파일: `local_descriptors/embedllm-analysis/minbydistance_1800_unseen_results.json`.
+
+## 35. 최종 발표자료(COMPAR Final.pdf) 오탈자 검토 (2026-08-24)
+
+`C:\Users\user\Downloads\COMPAR Final.pdf`(27페이지) 전체를 PyMuPDF로 페이지별 PNG 렌더링(poppler 미설치로 인한 우회) 후 육안 검토. 발견한 오탈자/이슈 8건 — 텍스트 오타(p.1 "Mulit-Positive"→"Multi-Positive", p.22 "Limitaition"→"Limitation", p.11 "per queries"→"per query"), CSCR 대소문자 불일치(p.7, p.16 "cscr"→"CSCR"), 표기 불일치(p.15 "Embed LLM"→"EmbedLLM"), 이미지 결함(p.16 우측 차트 범례 "C" 글자 잘림, p.20 하단에 미완성 텍스트 조각 "0.475 → 0.494 → 0.516 → 0.522," 방치 — 75-모델 값(~0.512) 누락). 데이터/수치는 전 페이지에서 §32~34의 확정 결과와 정확히 일치, 사실 오류는 없음. **사용자가 전부 직접 수정 완료.**
+
+발표는 로컬 노트북을 들고 발표 장소로 이동해 진행 예정 — §32~34에서 만든 이미지 산출물은 전부 `local_descriptors/embedllm-analysis/`(+ LLMRouterBench 기준선은 `local_descriptors/llmrouterbench_v15_900/`)에 있고, 위 표에 스크립트→산출물 매핑을 정리해 둠.
